@@ -18,7 +18,7 @@ import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillReplayApps
 import io.github.ccch1mneyyy.dsh_app.runtime.RuntimeController
 import io.github.ccch1mneyyy.dsh_app.runtime.PhoneSkillBundleReader
 import io.github.ccch1mneyyy.dsh_app.phone.a11y.OverlayPrefs
-import io.github.ccch1mneyyy.dsh_app.phone.background.PrivilegedActionGate
+import io.github.ccch1mneyyy.dsh_app.phone.shell.ShellLimits
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -218,7 +218,7 @@ class PhonePlugin : FlutterPlugin, ActivityAware, MethodChannel.MethodCallHandle
                 if (args == null || args.keys != setOf("maxCommandBytes", "maxTimeoutMs", "maxOutputBytes") ||
                     command == null || timeout == null || output == null) {
                     result.success(mapOf("ok" to false, "errorCode" to "invalidArguments"))
-                } else result.success(control.shell.configureLimits(io.github.ccch1mneyyy.dsh_app.phone.shell.ShellLimits(command, timeout.toLong(), output)))
+                } else result.success(control.shell.configureLimits(ShellLimits(command, timeout.toLong(), output)))
             }
             "resetAndroidShellDangerousRules" -> result.success(control.shell.resetDangerousRules())
             "connectAndroidShellRoot" -> async(result, shortControl = true) { control.shell.connectRoot() }
