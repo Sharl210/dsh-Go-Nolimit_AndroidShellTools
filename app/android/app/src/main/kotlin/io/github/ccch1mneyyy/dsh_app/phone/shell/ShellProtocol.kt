@@ -23,7 +23,7 @@ object ShellProtocol {
     const val DEFAULT_TIMEOUT_MS = 30_000L
     const val MAX_TIMEOUT_MS = 60_000L
     const val MAX_OUTPUT_BYTES = 64 * 1024
-    const val MAX_COMMAND_BYTES = 2048
+    const val MAX_COMMAND_BYTES = 20 * 1024
     const val RPC_TIMEOUT_MS = 5_000L
 
     fun commandError(command: String, maxBytes: Int = MAX_COMMAND_BYTES): String? = when {

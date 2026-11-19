@@ -193,21 +193,23 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
   Future<void> _resetRules() => _run(_channel.resetDangerousRules);
 
   Future<void> _editLimits() async {
-    final command = TextEditingController(text: '${_status.limits['maxCommandBytes'] ?? 2048}');
+    final command = TextEditingController(text: '${_status.limits['maxCommandBytes'] ?? 20 * 1024}');
     final timeout = TextEditingController(text: '${_status.limits['maxTimeoutMs'] ?? 60000}');
     final output = TextEditingController(text: '${_status.limits['maxOutputBytes'] ?? 65536}');
     final value = await showDialog<List<int>>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.androidShellLimitsTitle),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: command, keyboardType: TextInputType.number,
-            decoration: InputDecoration(labelText: context.l10n.androidShellLimitCommandLabel)),
-          TextField(controller: timeout, keyboardType: TextInputType.number,
-            decoration: InputDecoration(labelText: context.l10n.androidShellLimitTimeoutLabel)),
-          TextField(controller: output, keyboardType: TextInputType.number,
-            decoration: InputDecoration(labelText: context.l10n.androidShellLimitOutputLabel)),
-        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _limitField(command, context.l10n.androidShellLimitCommandLabel),
+            const SizedBox(height: 12),
+            _limitField(timeout, context.l10n.androidShellLimitTimeoutLabel),
+            const SizedBox(height: 12),
+            _limitField(output, context.l10n.androidShellLimitOutputLabel),
+          ],
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.commonCancel)),
           FilledButton(onPressed: () {
@@ -225,7 +227,19 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
       maxCommandBytes: value[0], maxTimeoutMs: value[1], maxOutputBytes: value[2]));
   }
 
-  Future<void> _stop() async {
+  Widget _limitField(TextEditingController controller, String label) => TextField(
+    controller: controller,
+    keyboardType: TextInputType.number,
+    maxLines: 1,
+    decoration: InputDecoration(
+      labelText: label,
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      contentPadding: const EdgeInsets.fromLTRB(16, 22, 16, 12),
+      border: const OutlineInputBorder(),
+    ),
+  );
+
+
     if (_stopping) return;
     final operation = ++_operation;
     setState(() {

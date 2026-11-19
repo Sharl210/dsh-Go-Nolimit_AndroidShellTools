@@ -14,7 +14,7 @@ internal class ShellPolicy(context: android.content.Context) {
     private val preferences = context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
 
     @Synchronized fun mode(): Mode = Mode.entries.firstOrNull { it.wire == preferences.getString(KEY_MODE, null) }
-        ?: Mode.ASK
+        ?: Mode.DANGEROUS
 
     @Synchronized fun rules(): List<String> = preferences.getStringSet(KEY_RULES, null)
         ?.toList()?.filter { it.isNotBlank() } ?: DEFAULT_RULES
@@ -82,9 +82,14 @@ internal class ShellPolicy(context: android.content.Context) {
         private const val MAX_RULES = 128
         private const val MAX_RULE_TEXT_LENGTH = 16 * 1024
         val DEFAULT_RULES = listOf(
-            "rm\\s+-rf", "rm\\s+--no-preserve-root", "dd\\s+if=", "mkfs", "format",
-            "wipe", "factory\\s+reset", "erase\\s+(all|userdata|system)",
-            "reboot", "shutdown", "poweroff", "--wipe-data", "wipe_data",
+            "mkfs(\\.\\w+)?\\s+/dev/(sd|mmcblk|nvme|block)",
+            "dd\\s+.*\\bof=/dev/(sd|mmcblk|nvme|block)",
+            "rm\\s+(-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r)\\s+(/|/\\*|/system|/data)(\\s|$)",
+            "wipe\\s+(data|userdata|factory)",
+            "setenforce\\s+0",
+            "iptables\\s+(-F|--flush|-P\\s+\\w+\\s+DROP)",
+            "chmod\\s+(-R\\s+)?777\\s+/(system|etc|data|vendor)",
+            "pm\\s+(uninstall|disable|clear)\\s+(android|com\\.android|com\\.google\\.android)",
         )
     }
 }

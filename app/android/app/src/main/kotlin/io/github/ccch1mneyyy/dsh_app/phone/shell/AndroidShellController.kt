@@ -14,7 +14,7 @@ class AndroidShellController(context: Context, private val onChanged: () -> Unit
     private val root = RootShellBackend()
     private val guard = Any()
     private var enabled = preferences.getBoolean("enabled", false)
-    private var backend = preferences.getString("backend", "shizuku").takeIf { it == "adb" || it == "shizuku" || it == "root" } ?: "shizuku"
+    private var backend = preferences.getString("backend", "root").takeIf { it == "adb" || it == "shizuku" || it == "root" } ?: "root"
     private var generation = 0L
     private var setupBusy = false
     private var active: Lease? = null
@@ -59,7 +59,22 @@ class AndroidShellController(context: Context, private val onChanged: () -> Unit
         )
     }
 
-    fun configurePolicy(mode: String?, rules: List<String>?): Map<String, Any?> = policy.configure(mode, rules)
+    /** Refresh an already-authorized backend without starting setup or pairing flows. */
+    fun refreshAuthorizedConnection() {
+        val selection = synchronized(guard) {
+            if (!enabled || setupBusy || active != null) return
+            backend
+        }
+        when (selection) {
+            "root" -> if (root.status()["connected"] != true) connectRoot()
+            "shizuku" -> {
+                val state = shizuku.status()
+                if (state["running"] == true && state["granted"] == true) connect()
+            }
+            "adb" -> if (adb.status()["paired"] == true) connect()
+        }
+    }
+
 
     fun configureLimits(limits: ShellLimits): Map<String, Any?> = policy.configureLimits(limits)
 

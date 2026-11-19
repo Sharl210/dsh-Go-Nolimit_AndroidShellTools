@@ -4,14 +4,19 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version name, for example 1.2.0-shell.1
+        description: Official upstream version name, for example 1.2.0
         required: true
-        default: 1.2.0-shell.1
+        default: 1.2.0
+        type: string
+      build_number:
+        description: Official upstream Android versionCode
+        required: true
+        default: '11181211'
         type: string
       prerelease:
         description: Mark the GitHub Release as prerelease
         required: true
-        default: true
+        default: false
         type: boolean
 
 permissions:
@@ -91,7 +96,7 @@ jobs:
           test -f "$ANDROID_HOME/ndk/28.2.13676358/source.properties"
           runtime/build-runtime.sh arm64-v8a
       - name: Build Release APK
-        run: tooling/build-apk.sh --release -f arm64 --build-name "${{ inputs.version }}"
+        run: tooling/build-apk.sh --release -f arm64 --build-name "${{ inputs.version }}" --build-number "${{ inputs.build_number }}"
       - name: Prepare direct Release assets
         run: |
           mkdir -p release-assets
