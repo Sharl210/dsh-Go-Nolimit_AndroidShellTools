@@ -76,6 +76,8 @@ class AndroidShellController(context: Context, private val onChanged: () -> Unit
     }
 
 
+    fun configurePolicy(mode: String?, rules: List<String>?): Map<String, Any?> = policy.configure(mode, rules)
+
     fun configureLimits(limits: ShellLimits): Map<String, Any?> = policy.configureLimits(limits)
 
     fun shellLimits(): ShellLimits = policy.limits()
