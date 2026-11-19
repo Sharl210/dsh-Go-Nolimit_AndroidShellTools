@@ -572,7 +572,7 @@
   "androidShellAlwaysAllow": "Always allow",
   "androidShellDangerousOnly": "Ask for dangerous commands",
   "androidShellDangerousRules": "Dangerous command rules",
-  "androidShellDangerousRulesHint": "One command fragment per line; a matching fragment requires confirmation",
+  "androidShellDangerousRulesHint": "One regex per line; matches require confirmation. Invalid expressions match as plain text.",
   "androidShellResetRules": "Restore default rules",
   "androidShellRoot": "Native Root",
   "androidShellRootHint": "Run commands through the device's su as root; Root is never requested or started automatically.",

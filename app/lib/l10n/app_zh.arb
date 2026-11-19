@@ -1078,7 +1078,7 @@
   "androidShellAlwaysAllow": "始终允许",
   "androidShellDangerousOnly": "危险命令才询问",
   "androidShellDangerousRules": "危险命令规则",
-  "androidShellDangerousRulesHint": "每行一段命令文本，命令包含任意一行时会要求确认",
+  "androidShellDangerousRulesHint": "每行一条正则表达式，匹配时询问；无效表达式按普通文本匹配",
   "androidShellResetRules": "恢复默认规则",
   "androidShellRoot": "Native Root",
   "androidShellRootHint": "使用设备上的 su，以 root UID 执行命令；不会自动申请或启动 Root。",

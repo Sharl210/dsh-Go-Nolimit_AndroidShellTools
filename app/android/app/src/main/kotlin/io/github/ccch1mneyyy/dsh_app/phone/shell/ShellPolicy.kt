@@ -54,7 +54,10 @@ internal class ShellPolicy(context: android.content.Context) {
     fun shouldConfirm(command: String): Boolean = when (mode()) {
         Mode.ASK -> true
         Mode.ALWAYS -> false
-        Mode.DANGEROUS -> rules().any { command.contains(it, ignoreCase = true) }
+        Mode.DANGEROUS -> rules().any { pattern ->
+            runCatching { Regex(pattern, RegexOption.IGNORE_CASE).containsMatchIn(command) }
+                .getOrElse { command.contains(pattern, ignoreCase = true) }
+        }
     }
 
     fun status(): Map<String, Any?> = mapOf(
