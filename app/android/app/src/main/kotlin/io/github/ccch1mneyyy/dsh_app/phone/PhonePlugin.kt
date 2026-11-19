@@ -18,6 +18,7 @@ import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillReplayApps
 import io.github.ccch1mneyyy.dsh_app.runtime.RuntimeController
 import io.github.ccch1mneyyy.dsh_app.runtime.PhoneSkillBundleReader
 import io.github.ccch1mneyyy.dsh_app.phone.a11y.OverlayPrefs
+import io.github.ccch1mneyyy.dsh_app.phone.background.PrivilegedActionGate
 import io.github.ccch1mneyyy.dsh_app.phone.shell.ShellLimits
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
