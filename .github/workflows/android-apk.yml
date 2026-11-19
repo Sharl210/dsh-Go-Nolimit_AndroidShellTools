@@ -33,31 +33,29 @@ jobs:
           flutter-version: 3.47.7
           channel: stable
           cache: true
-      - name: Add Maven mirror to Flutter's included Gradle build
+      - name: Configure Gradle Maven mirror
         run: |
-          python3 - <<'PY'
-          import os
-          from pathlib import Path
-          path = Path(os.environ['FLUTTER_ROOT']) / 'packages/flutter_tools/gradle/settings.gradle.kts'
-          mirror = 'https://maven-central.storage-download.googleapis.com/maven2'
-          path.write_text(f'''pluginManagement {{
-              repositories {{
-                  maven {{ url = uri("{mirror}") }}
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }}
-          }}
-          dependencyResolutionManagement {{
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {{
-                  google()
-                  maven {{ url = uri("{mirror}") }}
-                  mavenCentral()
-              }}
-          }}
-          ''')
-          PY
+          mkdir -p "$HOME/.gradle/init.d"
+          cat > "$HOME/.gradle/init.d/dsh-maven-mirror.gradle" <<'EOF'
+          allprojects {
+              buildscript {
+                  repositories {
+                      maven { url = uri('https://maven-central.storage-download.googleapis.com/maven2') }
+                  }
+              }
+              repositories {
+                  maven { url = uri('https://maven-central.storage-download.googleapis.com/maven2') }
+              }
+          }
+          settingsEvaluated { settings ->
+              settings.pluginManagement.repositories {
+                  maven { url = uri('https://maven-central.storage-download.googleapis.com/maven2') }
+              }
+              settings.dependencyResolutionManagement.repositories {
+                  maven { url = uri('https://maven-central.storage-download.googleapis.com/maven2') }
+              }
+          }
+          EOF
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.22.1
