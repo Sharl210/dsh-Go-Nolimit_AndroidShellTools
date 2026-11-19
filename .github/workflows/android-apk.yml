@@ -30,10 +30,12 @@ jobs:
       TZ: Asia/Shanghai
       DSH_MAVEN_MIRRORS: '0'
       DSH_MAVEN_CENTRAL_MIRROR: '1'
+      VERSION: ${{ inputs.version }}
     steps:
+      - name: Validate release version
+        run: '[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]'
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: android-shell-policy
           persist-credentials: false
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
@@ -74,6 +76,9 @@ jobs:
               )
           }
           EOF
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
       - name: Install Flutter dependencies
         working-directory: app
         run: |
@@ -82,6 +87,8 @@ jobs:
       - name: Prepare complete Android runtime and NDK
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;28.2.13676358'
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          test -f "$ANDROID_HOME/ndk/28.2.13676358/source.properties"
           runtime/build-runtime.sh arm64-v8a
       - name: Build Release APK
         run: tooling/build-apk.sh --release -f arm64 --build-name "${{ inputs.version }}"
