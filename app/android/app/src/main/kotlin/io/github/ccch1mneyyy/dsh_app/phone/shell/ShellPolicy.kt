@@ -157,10 +157,11 @@ internal class RootShellBackend {
             val stdout = synchronized(out) { String(out.toByteArray(), StandardCharsets.UTF_8) }
             val stderr = synchronized(err) { String(err.toByteArray(), StandardCharsets.UTF_8) }
             val code = when { cancelled -> "cancelled"; timedOut -> "timeout"; else -> null }
+            val errorCode: String? = code ?: if (child.exitValue() == 0) null else "commandFailed"
             mapOf("ok" to (code == null && child.exitValue() == 0), "started" to true, "backend" to "root", "uid" to 0,
                 "exitCode" to child.exitValue(), "stdout" to stdout, "stderr" to stderr,
                 "timedOut" to timedOut, "cancelled" to cancelled, "truncated" to (truncated.get() != 0),
-                "errorCode" to code ?: if (child.exitValue() == 0) null else "commandFailed")
+                "errorCode" to errorCode)
         } catch (_: Exception) { failure("transportLost", true) }
     }
 
