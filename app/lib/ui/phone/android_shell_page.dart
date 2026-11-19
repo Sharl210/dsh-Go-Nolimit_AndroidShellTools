@@ -85,7 +85,7 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
   Future<void> _refresh() async {
     final read = ++_read;
     final status = await _channel.status();
-    if (!mounted || read != _read) return;
+    if (!mounted || read != _read || (status == _status && !_loading)) return;
     setState(() {
       _status = status;
       _loading = false;
@@ -102,10 +102,18 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
     try {
       final result = await action();
       if (!mounted || operation != _operation) return;
-      setState(() => _errorCode = result.ok ? null : result.errorCode ?? 'invalidResponse');
-      await _refresh();
+      final status = await _channel.status();
+      if (!mounted || operation != _operation) return;
+      setState(() {
+        _status = status;
+        _loading = false;
+        _errorCode = result.ok ? null : result.errorCode ?? 'invalidResponse';
+        _busy = false;
+      });
     } finally {
-      if (mounted && operation == _operation) setState(() => _busy = false);
+      if (mounted && operation == _operation && _busy) {
+        setState(() => _busy = false);
+      }
     }
   }
 
@@ -169,8 +177,17 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
     );
     controller.dispose();
     if (!mounted || value == null) return;
-    final rules = value.split('\n').map((line) => line.trim()).where((line) => line.isNotEmpty).toList();
-    await _run(() => _channel.configurePolicy(mode: _status.confirmationMode, dangerousRules: rules));
+    final rules = value
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+    await _run(() => _channel.configurePolicy(
+          mode: _status.confirmationMode,
+          dangerousRules: rules,
+        ));
   }
 
   Future<void> _resetRules() => _run(_channel.resetDangerousRules);
@@ -342,7 +359,7 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
               ),
             if (_status.confirmationMode == AndroidShellConfirmationMode.dangerous) ...[
               ListPageRow(title: l10n.androidShellDangerousRules,
-                subtitle: _status.dangerousRules.join(' · '), subtitleMaxLines: 3,
+                subtitle: _status.dangerousRulesSummary, subtitleMaxLines: 3,
                 onTap: canSetup ? () => unawaited(_editRules()) : null),
               ListPageRow(title: l10n.androidShellResetRules,
                 onTap: canSetup ? () => unawaited(_resetRules()) : null),

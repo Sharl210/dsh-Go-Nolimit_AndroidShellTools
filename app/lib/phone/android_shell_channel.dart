@@ -45,6 +45,13 @@ class AndroidShellShizukuStatus {
   final bool installed;
   final bool running;
   final bool granted;
+
+  @override
+  bool operator ==(Object other) => other is AndroidShellShizukuStatus &&
+      installed == other.installed && running == other.running && granted == other.granted;
+
+  @override
+  int get hashCode => Object.hash(installed, running, granted);
 }
 
 class AndroidShellAdbStatus {
@@ -55,6 +62,12 @@ class AndroidShellAdbStatus {
 
   final bool paired;
   final bool connected;
+
+  @override
+  bool operator ==(Object other) => other is AndroidShellAdbStatus && paired == other.paired && connected == other.connected;
+
+  @override
+  int get hashCode => Object.hash(paired, connected);
 }
 
 class AndroidShellRootStatus {
@@ -69,6 +82,13 @@ class AndroidShellRootStatus {
   final bool available;
   final bool connected;
   final int? uid;
+
+  @override
+  bool operator ==(Object other) => other is AndroidShellRootStatus &&
+      available == other.available && connected == other.connected && uid == other.uid;
+
+  @override
+  int get hashCode => Object.hash(available, connected, uid);
 }
 
 /// Independent of the screen-control/background-display status and permissions.
@@ -135,6 +155,36 @@ class AndroidShellStatus {
   final List<String> dangerousRules;
   final List<String> defaultDangerousRules;
   final Map<String, int> limits;
+
+  String get dangerousRulesSummary => dangerousRules.take(6).join(' · ');
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! AndroidShellStatus ||
+        supported != other.supported || enabled != other.enabled || backend != other.backend ||
+        ready != other.ready || uid != other.uid || reasonCode != other.reasonCode ||
+        shizuku != other.shizuku || adb != other.adb || root != other.root ||
+        confirmationMode != other.confirmationMode || limits.length != other.limits.length ||
+        dangerousRules.length != other.dangerousRules.length ||
+        defaultDangerousRules.length != other.defaultDangerousRules.length) return false;
+    for (final entry in limits.entries) {
+      if (other.limits[entry.key] != entry.value) return false;
+    }
+    for (var i = 0; i < dangerousRules.length; i++) {
+      if (dangerousRules[i] != other.dangerousRules[i]) return false;
+    }
+    for (var i = 0; i < defaultDangerousRules.length; i++) {
+      if (defaultDangerousRules[i] != other.defaultDangerousRules[i]) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    supported, enabled, backend, ready, uid, reasonCode, shizuku, adb, root,
+    confirmationMode, Object.hashAll(dangerousRules), Object.hashAll(defaultDangerousRules),
+    Object.hashAll(limits.entries),
+  );
 }
 
 class AndroidShellResult {

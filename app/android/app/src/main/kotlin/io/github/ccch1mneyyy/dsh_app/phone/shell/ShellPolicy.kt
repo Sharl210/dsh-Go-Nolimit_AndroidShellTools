@@ -83,9 +83,8 @@ internal class ShellPolicy(context: android.content.Context) {
         private const val MAX_RULE_TEXT_LENGTH = 16 * 1024
         val DEFAULT_RULES = listOf(
             "rm\\s+-rf", "rm\\s+--no-preserve-root", "dd\\s+if=", "mkfs", "format",
-            "wipe", "reboot", "shutdown", "poweroff", "setenforce", "iptables",
-            "pm\\s+(uninstall|disable|clear)", "settings\\s+put", "chmod\\s+777",
-            "chown\\s+root", "mount\\s", "umount\\s", "killall", "am\\s+force-stop",
+            "wipe", "factory\\s+reset", "erase\\s+(all|userdata|system)",
+            "reboot", "shutdown", "poweroff", "--wipe-data", "wipe_data",
         )
     }
 }
