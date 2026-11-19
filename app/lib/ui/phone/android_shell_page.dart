@@ -173,7 +173,9 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
     await _run(() => _channel.configurePolicy(mode: _status.confirmationMode, dangerousRules: rules));
   }
 
-  Future<void> _editLimits() async {
+  Future<void> _resetRules() => _run(_channel.resetDangerousRules);
+
+
     final command = TextEditingController(text: '${_status.limits['maxCommandBytes'] ?? 2048}');
     final timeout = TextEditingController(text: '${_status.limits['maxTimeoutMs'] ?? 60000}');
     final output = TextEditingController(text: '${_status.limits['maxOutputBytes'] ?? 65536}');
