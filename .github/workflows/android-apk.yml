@@ -99,7 +99,7 @@ jobs:
           (cd release-assets && sha256sum "dsh-go-${{ inputs.version }}-arm64.apk" > SHA256SUMS)
       - name: Verify Release assets
         run: |
-          sha256sum -c release-assets/SHA256SUMS
+          (cd release-assets && sha256sum -c SHA256SUMS)
           test -s "release-assets/dsh-go-${{ inputs.version }}-arm64.apk"
       - name: Publish direct APK Release assets
         env:
