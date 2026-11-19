@@ -8,7 +8,7 @@ data class ShellLimits(
 ) {
     companion object {
         const val HARD_MAX_COMMAND_BYTES = 96 * 1024
-        const val HARD_MAX_TIMEOUT_MS = 24 * 60 * 60 * 1000L
+        const val HARD_MAX_TIMEOUT_MS = 120_000L
         const val HARD_MAX_OUTPUT_BYTES = 96 * 1024
 
         fun valid(value: ShellLimits): Boolean = value.maxCommandBytes in 1..HARD_MAX_COMMAND_BYTES &&
