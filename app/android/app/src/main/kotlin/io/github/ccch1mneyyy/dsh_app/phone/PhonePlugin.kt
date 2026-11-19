@@ -195,12 +195,33 @@ class PhonePlugin : FlutterPlugin, ActivityAware, MethodChannel.MethodCallHandle
                 val args = call.arguments as? Map<*, *>
                 val enabled = args?.get("enabled") as? Boolean
                 val backend = args?.get("backend") as? String
-                if (args?.keys != setOf("enabled", "backend") || enabled == null || backend !in setOf("shizuku", "adb")) {
+                if (args?.keys != setOf("enabled", "backend") || enabled == null || backend !in setOf("shizuku", "adb", "root")) {
                     result.success(mapOf("ok" to false, "errorCode" to "invalidArguments"))
                 } else if (enabled && !control.isEnabled()) {
                     result.success(mapOf("ok" to false, "errorCode" to "disabled"))
                 } else async(result, shortControl = true) { control.shell.configure(enabled, backend!!) }
             }
+            "configureAndroidShellPolicy" -> {
+                val args = call.arguments as? Map<*, *>
+                val mode = args?.get("mode") as? String
+                val rules = args?.get("dangerousRules") as? List<*> ?: if (args?.containsKey("dangerousRules") == true) null else null
+                if (args == null || args.keys.any { it !in setOf("mode", "dangerousRules") } ||
+                    mode == null || args["dangerousRules"] != null && (rules == null || rules.any { it !is String })) {
+                    result.success(mapOf("ok" to false, "errorCode" to "invalidArguments"))
+                } else result.success(control.shell.configurePolicy(mode, rules?.filterIsInstance<String>()))
+            }
+            "configureAndroidShellLimits" -> {
+                val args = call.arguments as? Map<*, *>
+                val command = args?.get("maxCommandBytes") as? Int
+                val timeout = args?.get("maxTimeoutMs") as? Int
+                val output = args?.get("maxOutputBytes") as? Int
+                if (args == null || args.keys != setOf("maxCommandBytes", "maxTimeoutMs", "maxOutputBytes") ||
+                    command == null || timeout == null || output == null) {
+                    result.success(mapOf("ok" to false, "errorCode" to "invalidArguments"))
+                } else result.success(control.shell.configureLimits(io.github.ccch1mneyyy.dsh_app.phone.shell.ShellLimits(command, timeout.toLong(), output)))
+            }
+            "resetAndroidShellDangerousRules" -> result.success(control.shell.resetDangerousRules())
+            "connectAndroidShellRoot" -> async(result, shortControl = true) { control.shell.connectRoot() }
             "androidShellRequestPermission" -> async(result) { control.shell.requestShizukuPermission() }
             "androidShellStartPairing" -> async(result) { control.shell.startAdbPairing() }
             "androidShellPair" -> {

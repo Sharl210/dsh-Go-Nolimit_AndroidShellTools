@@ -1,5 +1,21 @@
 package io.github.ccch1mneyyy.dsh_app.phone.shell
 
+/** The Android Shell frame keeps a hard transport ceiling; configured values can be lower. */
+data class ShellLimits(
+    val maxCommandBytes: Int = ShellProtocol.MAX_COMMAND_BYTES,
+    val maxTimeoutMs: Long = ShellProtocol.MAX_TIMEOUT_MS,
+    val maxOutputBytes: Int = ShellProtocol.MAX_OUTPUT_BYTES,
+) {
+    companion object {
+        const val HARD_MAX_COMMAND_BYTES = 96 * 1024
+        const val HARD_MAX_TIMEOUT_MS = 24 * 60 * 60 * 1000L
+        const val HARD_MAX_OUTPUT_BYTES = 96 * 1024
+
+        fun valid(value: ShellLimits): Boolean = value.maxCommandBytes in 1..HARD_MAX_COMMAND_BYTES &&
+            value.maxTimeoutMs in 100..HARD_MAX_TIMEOUT_MS && value.maxOutputBytes in 1..HARD_MAX_OUTPUT_BYTES
+    }
+}
+
 /** Deliberately independent of the virtual-display protocol. */
 object ShellProtocol {
     const val REVISION = "dsh.android-shell.v1"
@@ -10,9 +26,9 @@ object ShellProtocol {
     const val MAX_COMMAND_BYTES = 2048
     const val RPC_TIMEOUT_MS = 5_000L
 
-    fun commandError(command: String): String? = when {
+    fun commandError(command: String, maxBytes: Int = MAX_COMMAND_BYTES): String? = when {
         command.isBlank() -> "invalidCommand"
-        command.toByteArray(Charsets.UTF_8).size > MAX_COMMAND_BYTES -> "commandTooLong"
+        command.toByteArray(Charsets.UTF_8).size > maxBytes -> "commandTooLong"
         command.any { c ->
             (c.code in 0..31 && c != '\n' && c != '\r' && c != '\t') ||
                 c.code in 127..159 || c.code in 0x202a..0x202e || c.code in 0x2066..0x2069 ||
@@ -21,12 +37,13 @@ object ShellProtocol {
         else -> null
     }
 
-    fun timeoutError(timeoutMs: Long): String? =
-        if (timeoutMs !in 100..MAX_TIMEOUT_MS) "invalidTimeout" else null
+    fun timeoutError(timeoutMs: Long, maxTimeoutMs: Long = MAX_TIMEOUT_MS): String? =
+        if (timeoutMs !in 100..maxTimeoutMs) "invalidTimeout" else null
 
     fun validUid(backend: String, uid: Int): Boolean = when (backend) {
         "adb" -> uid == 2000
         "shizuku" -> uid == 2000 || uid == 0
+        "root" -> uid == 0
         else -> false
     }
 
