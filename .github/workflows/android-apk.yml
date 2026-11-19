@@ -51,9 +51,9 @@ jobs:
               settings.pluginManagement.repositories {
                   maven { url = uri('https://maven-central.storage-download.googleapis.com/maven2') }
               }
-              settings.dependencyResolutionManagement.repositories {
-                  maven { url = uri('https://maven-central.storage-download.googleapis.com/maven2') }
-              }
+              settings.dependencyResolutionManagement.repositoriesMode.set(
+                  org.gradle.api.initialization.resolve.RepositoriesMode.PREFER_PROJECT
+              )
           }
           EOF
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
