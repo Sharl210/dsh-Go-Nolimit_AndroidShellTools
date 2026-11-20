@@ -36,9 +36,13 @@ jobs:
       DSH_MAVEN_MIRRORS: '0'
       DSH_MAVEN_CENTRAL_MIRROR: '1'
       VERSION: ${{ inputs.version }}
+      BUILD_NUMBER: ${{ inputs.build_number }}
     steps:
-      - name: Validate release version
-        run: '[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]'
+      - name: Validate official release version
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$BUILD_NUMBER" =~ ^[0-9]+$ ]]
+          curl -fsSL "https://github.com/ccch1mneyyy/dsh-Go/releases/download/v$VERSION/update.json" |
+            jq -e --arg version "$VERSION+$BUILD_NUMBER" --arg tag "v$VERSION" '.version == $version and .tag == $tag'
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
@@ -96,12 +100,12 @@ jobs:
           test -f "$ANDROID_HOME/ndk/28.2.13676358/source.properties"
           runtime/build-runtime.sh arm64-v8a
       - name: Build Release APK
-        run: tooling/build-apk.sh --release -f arm64 --build-name "${{ inputs.version }}" --build-number "${{ inputs.build_number }}"
+        run: tooling/build-apk.sh --release -f arm64 --build-name "$VERSION" --build-number "$BUILD_NUMBER"
       - name: Prepare direct Release assets
         run: |
           mkdir -p release-assets
-          cp app/build/app/outputs/flutter-apk/app-arm64-release.apk "release-assets/dsh-go-${{ inputs.version }}-arm64.apk"
-          (cd release-assets && sha256sum "dsh-go-${{ inputs.version }}-arm64.apk" > SHA256SUMS)
+          cp app/build/app/outputs/flutter-apk/app-arm64-release.apk "release-assets/dsh-go-$VERSION-arm64.apk"
+          (cd release-assets && sha256sum "dsh-go-$VERSION-arm64.apk" > SHA256SUMS)
       - name: Verify Release assets
         run: |
           (cd release-assets && sha256sum -c SHA256SUMS)

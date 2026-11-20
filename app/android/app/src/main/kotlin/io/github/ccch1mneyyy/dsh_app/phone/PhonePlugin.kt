@@ -191,7 +191,7 @@ class PhonePlugin : FlutterPlugin, ActivityAware, MethodChannel.MethodCallHandle
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "status" -> control.status { complete(result, it) }
-            "androidShellStatus" -> async(result, shortControl = true) {
+            "androidShellStatus" -> async(result) {
                 control.shell.refreshAuthorizedConnection()
                 control.shell.status()
             }
