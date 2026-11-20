@@ -171,11 +171,17 @@ class AndroidShellController(context: Context, private val onChanged: () -> Unit
         try {
             if (!wanted()) return result(lease, ShellProtocol.failure("cancelled"))
             if (lease.backend == "root") {
-                if (root.status()["connected"] != true) return result(lease, ShellProtocol.failure("rootNotConnected"))
+                // Chat can submit its first job without opening the settings page.
+                if (root.status()["connected"] != true && !root.connect(::wanted)) {
+                    val code = if (wanted()) "rootUnavailable" else "cancelled"
+                    return result(lease, ShellProtocol.failure(code))
+                }
+                if (!wanted()) return result(lease, ShellProtocol.failure("cancelled"))
                 if (requiresConfirmation(command)) {
                     val decision = confirm("root", 0)
                     PhoneAndroidShell.confirmationError(decision)?.let { return result(lease, ShellProtocol.failure(it)) }
                 }
+                if (!wanted()) return result(lease, ShellProtocol.failure("cancelled"))
                 lease.sent = true
                 return result(lease, executeRoot(command, timeoutMs, ::wanted))
             }

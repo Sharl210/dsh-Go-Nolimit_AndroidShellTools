@@ -13,6 +13,10 @@ on:
         required: true
         default: '11181211'
         type: string
+      release_revision:
+        description: Optional fork release revision (does not change the APK version)
+        required: false
+        type: string
       prerelease:
         description: Mark the GitHub Release as prerelease
         required: true
@@ -37,10 +41,12 @@ jobs:
       DSH_MAVEN_CENTRAL_MIRROR: '1'
       VERSION: ${{ inputs.version }}
       BUILD_NUMBER: ${{ inputs.build_number }}
+      RELEASE_REVISION: ${{ inputs.release_revision }}
     steps:
       - name: Validate official release version
         run: |
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$BUILD_NUMBER" =~ ^[0-9]+$ ]]
+          [[ -z "$RELEASE_REVISION" || "$RELEASE_REVISION" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]
           curl -fsSL "https://github.com/ccch1mneyyy/dsh-Go/releases/download/v$VERSION/update.json" |
             jq -e --arg version "$VERSION+$BUILD_NUMBER" --arg tag "v$VERSION" '.version == $version and .tag == $tag'
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -109,13 +115,13 @@ jobs:
       - name: Verify Release assets
         run: |
           (cd release-assets && sha256sum -c SHA256SUMS)
-          test -s "release-assets/dsh-go-${{ inputs.version }}-arm64.apk"
+          test -s "release-assets/dsh-go-$VERSION-arm64.apk"
       - name: Publish direct APK Release assets
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: v${{ inputs.version }}
         run: |
-          gh release create "$TAG" \
+          tag="v$VERSION${RELEASE_REVISION:+-$RELEASE_REVISION}"
+          gh release create "$tag" \
             "release-assets/dsh-go-$VERSION-arm64.apk" \
             release-assets/SHA256SUMS \
             --target "$(git rev-parse HEAD)" \
