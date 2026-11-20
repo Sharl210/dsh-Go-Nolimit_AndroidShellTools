@@ -239,7 +239,7 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
     ),
   );
 
-
+  Future<void> _stop() async {
     if (_stopping) return;
     final operation = ++_operation;
     setState(() {
