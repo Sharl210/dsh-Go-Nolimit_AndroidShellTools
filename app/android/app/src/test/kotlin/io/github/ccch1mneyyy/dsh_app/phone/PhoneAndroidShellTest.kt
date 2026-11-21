@@ -101,13 +101,15 @@ class PhoneAndroidShellTest {
     }
 
     @Test fun commandLimitCountsUtf8BytesRatherThanUtf16Characters() {
-        assertNotNull(parse("x".repeat(2048)))
-        assertNull(parse("x".repeat(2049)))
-        assertNotNull(parse("\u00e9".repeat(1024)))
-        assertNull(parse("\u00e9".repeat(1024) + "x"))
+        val limit = PhoneAndroidShell.MAX_COMMAND_BYTES
+        assertNotNull(parse("x".repeat(limit)))
+        assertNull(parse("x".repeat(limit + 1)))
+        // Two bytes per character: the limit counts UTF-8 bytes, not UTF-16 units.
+        assertNotNull(parse("\u00e9".repeat(limit / 2)))
+        assertNull(parse("\u00e9".repeat(limit / 2) + "x"))
         val emoji = "\ud83d\ude00"
-        assertNotNull(parse(emoji.repeat(512)))
-        assertNull(parse(emoji.repeat(512) + "x"))
+        assertNotNull(parse(emoji.repeat(limit / 4)))
+        assertNull(parse(emoji.repeat(limit / 4) + "x"))
     }
 
     @Test fun hiddenControlAndBidiCharactersCannotChangeWhatThePersonApproves() {

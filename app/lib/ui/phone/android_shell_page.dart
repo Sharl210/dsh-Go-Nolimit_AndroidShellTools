@@ -332,6 +332,14 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
               subtitleMaxLines: 6,
             ),
             ListPageRow(title: l10n.androidShellRefresh, onTap: _loading ? null : () => unawaited(_refresh())),
+            ListPageRow(
+              key: const ValueKey('android-shell-stop'),
+              icon: AppIcons.stop,
+              title: l10n.androidShellStop,
+              titleMaxLines: 2,
+              danger: true,
+              onTap: _loading || _stopping ? null : () => unawaited(_stop()),
+            ),
           ],
         ),
         if (_errorCode case final code?)
@@ -359,6 +367,25 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
               ),
           ],
         ),
+        if (shizuku && !_status.shizuku.granted)
+          ListPageCard(margin: _margin, children: [authorize])
+        else if (!root && !shizuku && !_status.adb.paired)
+          ListPageCard(margin: _margin, children: pairing),
+        if (!_status.ready && (root || (shizuku ? _status.shizuku.granted : _status.adb.paired)))
+          ListPageCard(
+            margin: _margin,
+            children: [
+              ListPageRow(
+                key: ValueKey(root ? 'android-shell-connect-root' : (shizuku ? 'android-shell-connect-shizuku' : 'android-shell-connect')),
+                title: root ? l10n.androidShellRootConnect : (shizuku ? l10n.androidShellConnectChannel : l10n.androidShellConnect),
+                titleMaxLines: 2,
+                subtitle: !_status.enabled ? l10n.androidShellErrorDisabled : null,
+                onTap: canSetup && _status.enabled
+                    ? () => unawaited(root ? _run(_channel.connectRoot) : (shizuku ? _run(_channel.connect) : _adbInput(pairing: false)))
+                    : null,
+              ),
+            ],
+          ),
         ListPageCard(
           margin: _margin,
           title: l10n.androidShellConfirmationMode,
@@ -379,39 +406,6 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
               ListPageRow(title: l10n.androidShellResetRules,
                 onTap: canSetup ? () => unawaited(_resetRules()) : null),
             ],
-          ],
-        ),
-        if (shizuku && !_status.shizuku.granted)
-          ListPageCard(margin: _margin, children: [authorize])
-        else if (!root && !shizuku && !_status.adb.paired)
-          ListPageCard(margin: _margin, children: pairing),
-
-        if (!_status.ready && (root || (shizuku ? _status.shizuku.granted : _status.adb.paired)))
-          ListPageCard(
-            margin: _margin,
-            children: [
-              ListPageRow(
-                key: ValueKey(root ? 'android-shell-connect-root' : (shizuku ? 'android-shell-connect-shizuku' : 'android-shell-connect')),
-                title: root ? l10n.androidShellRootConnect : (shizuku ? l10n.androidShellConnectChannel : l10n.androidShellConnect),
-                titleMaxLines: 2,
-                subtitle: !_status.enabled ? l10n.androidShellErrorDisabled : null,
-                onTap: canSetup && _status.enabled
-                    ? () => unawaited(root ? _run(_channel.connectRoot) : (shizuku ? _run(_channel.connect) : _adbInput(pairing: false)))
-                    : null,
-              ),
-            ],
-          ),
-        ListPageCard(
-          margin: _margin,
-          children: [
-            ListPageRow(
-              key: const ValueKey('android-shell-stop'),
-              icon: AppIcons.stop,
-              title: l10n.androidShellStop,
-              titleMaxLines: 2,
-              danger: true,
-              onTap: _loading || _stopping ? null : () => unawaited(_stop()),
-            ),
           ],
         ),
         PhoneOptionsFold(
