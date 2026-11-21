@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Official upstream version name, for example 1.2.0
+        description: Official upstream version name, for example 1.3.0
         required: true
-        default: 1.2.0
+        default: 1.3.0
         type: string
       build_number:
         description: Official upstream Android versionCode
         required: true
-        default: '11181211'
+        default: '11210245'
         type: string
       release_revision:
         description: Optional fork release revision (does not change the APK version)
