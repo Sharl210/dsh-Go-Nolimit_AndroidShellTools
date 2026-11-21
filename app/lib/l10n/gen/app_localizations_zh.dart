@@ -1634,7 +1634,7 @@ class L10nZh extends L10n {
   String get androidShellEntryHint => '独立的系统命令通道，默认关闭';
 
   @override
-  String get androidShellSubtitle => '通过 Shizuku 或自连 ADB 在这台手机上执行 Android 系统命令，不是 Ubuntu 里的 bash。';
+  String get androidShellSubtitle => '通过 Shizuku、自连 ADB 或 Native Root 在这台手机上执行 Android 系统命令，不是 Ubuntu 里的 bash。';
 
   @override
   String get androidShellEnable => '允许 Android Shell';
@@ -1644,7 +1644,7 @@ class L10nZh extends L10n {
       '独立开关，不随不打扰模式或屏幕免确认开启；只增加 Android 命令通道，不影响 Ubuntu 里的 bash / run_code 等工具，两者可同时使用。';
 
   @override
-  String get androidShellConfirmationNote => '每条命令均需确认，可能修改系统和文件。';
+  String get androidShellConfirmationNote => '确认策略可设置为每次询问、始终允许或仅在命中危险命令规则时询问。';
 
   @override
   String get androidShellMasterOff => '先在上一页打开「手机操控」。';
@@ -1653,7 +1653,7 @@ class L10nZh extends L10n {
   String get androidShellRiskTitle => '允许执行 Android 系统命令？';
 
   @override
-  String get androidShellRiskBody => '命令使用所选通道的实际 UID，可能修改应用、系统设置和共享文件。它不受屏幕应用名单完整保护；每条命令仍会单独请求原生确认。只允许你理解并信任的命令。';
+  String get androidShellRiskBody => '确认策略可设置为每次询问、始终允许或仅在命中危险命令规则时询问。命令可能修改系统和文件。';
 
   @override
   String get androidShellRiskAction => '允许 Android Shell';
@@ -1829,6 +1829,62 @@ class L10nZh extends L10n {
 
   @override
   String get androidShellErrorUnknown => '未能确认操作结果。先核实结果；已派发的命令不要自动重试。';
+
+  @override
+  String get androidShellLimitsTitle => '执行限制';
+
+  @override
+  String get androidShellLimitCommandLabel => '命令最大字节数';
+
+  @override
+  String get androidShellLimitTimeoutLabel => '超时毫秒数';
+
+  @override
+  String get androidShellLimitOutputLabel => '输出最大字节数';
+
+  @override
+  String androidShellMaxCommandBytes(int bytes) {
+    return '单条命令最多 $bytes 字节';
+  }
+
+  @override
+  String get androidShellAskEveryTime => '每次都询问';
+
+  @override
+  String get androidShellAlwaysAllow => '始终允许';
+
+  @override
+  String get androidShellDangerousOnly => '危险命令才询问';
+
+  @override
+  String get androidShellDangerousRules => '危险命令规则';
+
+  @override
+  String get androidShellDangerousRulesHint => '每行一条正则表达式，匹配时询问；无效表达式按普通文本匹配';
+
+  @override
+  String get androidShellResetRules => '恢复默认规则';
+
+  @override
+  String get androidShellRoot => 'Native Root';
+
+  @override
+  String get androidShellRootHint => '使用设备上的 su，以 root UID 执行命令；不会自动申请或启动 Root。';
+
+  @override
+  String get androidShellRootConnect => '连接 Root';
+
+  @override
+  String get androidShellErrorRootNotConnected => 'Root 尚未连接，请点击“连接 Root”。';
+
+  @override
+  String get androidShellErrorRootUnavailable => '没有可用的 Root su，或 Root 授权未通过。';
+
+  @override
+  String get androidShellConfirmationMode => '确认策略';
+
+  @override
+  String get androidShellErrorCommandFailed => '命令执行失败。';
 
   @override
   String get backgroundProtectionDescription => '默认关闭，仅在有本机任务且 App 退到后台时尝试保护；系统仍可能暂停任务。';

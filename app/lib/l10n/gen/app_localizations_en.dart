@@ -1715,7 +1715,7 @@ class L10nEn extends L10n {
 
   @override
   String get androidShellSubtitle =>
-      'Run Android system commands on this phone through Shizuku or self-ADB, not bash inside Ubuntu.';
+      'Run Android system commands on this phone through Shizuku, self-ADB, or Native Root, not bash inside Ubuntu.';
 
   @override
   String get androidShellEnable => 'Allow Android Shell';
@@ -1726,7 +1726,7 @@ class L10nEn extends L10n {
 
   @override
   String get androidShellConfirmationNote =>
-      'Every command needs confirmation and may change system settings and files.';
+      'Choose whether commands always ask, never ask, or ask only when a dangerous-command rule matches.';
 
   @override
   String get androidShellMasterOff => 'Turn on Phone control on the previous page first.';
@@ -1736,7 +1736,7 @@ class L10nEn extends L10n {
 
   @override
   String get androidShellRiskBody =>
-      'Commands use the selected channel\'s actual UID and may change apps, system settings, and shared files. Screen app rules cannot fully protect against them. Every command still requires separate native confirmation. Only allow commands you understand and trust.';
+      'The selected channel\'s actual UID is used. Commands may change apps, system settings, and shared files and are not fully covered by screen app rules. Whether each command asks follows the confirmation policy you selected.';
 
   @override
   String get androidShellRiskAction => 'Allow Android Shell';
@@ -1927,6 +1927,64 @@ class L10nEn extends L10n {
   @override
   String get androidShellErrorUnknown =>
       'The outcome could not be confirmed. Verify it first; never automatically retry a dispatched command.';
+
+  @override
+  String get androidShellLimitsTitle => 'Execution limits';
+
+  @override
+  String get androidShellLimitCommandLabel => 'Maximum command bytes';
+
+  @override
+  String get androidShellLimitTimeoutLabel => 'Timeout in milliseconds';
+
+  @override
+  String get androidShellLimitOutputLabel => 'Maximum output bytes';
+
+  @override
+  String androidShellMaxCommandBytes(int bytes) {
+    return 'Up to $bytes bytes per command';
+  }
+
+  @override
+  String get androidShellAskEveryTime => 'Ask every time';
+
+  @override
+  String get androidShellAlwaysAllow => 'Always allow';
+
+  @override
+  String get androidShellDangerousOnly => 'Ask for dangerous commands';
+
+  @override
+  String get androidShellDangerousRules => 'Dangerous command rules';
+
+  @override
+  String get androidShellDangerousRulesHint =>
+      'One regex per line; matches require confirmation. Invalid expressions match as plain text.';
+
+  @override
+  String get androidShellResetRules => 'Restore default rules';
+
+  @override
+  String get androidShellRoot => 'Native Root';
+
+  @override
+  String get androidShellRootHint =>
+      'Run commands through the device\'s su as root; Root is never requested or started automatically.';
+
+  @override
+  String get androidShellRootConnect => 'Connect Root';
+
+  @override
+  String get androidShellErrorRootNotConnected => 'Root is not connected. Tap Connect Root first.';
+
+  @override
+  String get androidShellErrorRootUnavailable => 'Root su is unavailable or authorization was not granted.';
+
+  @override
+  String get androidShellConfirmationMode => 'Confirmation policy';
+
+  @override
+  String get androidShellErrorCommandFailed => 'The command failed.';
 
   @override
   String get backgroundProtectionDescription =>

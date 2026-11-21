@@ -3095,7 +3095,7 @@ abstract class L10n {
   /// No description provided for @androidShellSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'通过 Shizuku 或自连 ADB 在这台手机上执行 Android 系统命令，不是 Ubuntu 里的 bash。'**
+  /// **'通过 Shizuku、自连 ADB 或 Native Root 在这台手机上执行 Android 系统命令，不是 Ubuntu 里的 bash。'**
   String get androidShellSubtitle;
 
   /// No description provided for @androidShellEnable.
@@ -3113,7 +3113,7 @@ abstract class L10n {
   /// No description provided for @androidShellConfirmationNote.
   ///
   /// In zh, this message translates to:
-  /// **'每条命令均需确认，可能修改系统和文件。'**
+  /// **'确认策略可设置为每次询问、始终允许或仅在命中危险命令规则时询问。'**
   String get androidShellConfirmationNote;
 
   /// No description provided for @androidShellMasterOff.
@@ -3131,7 +3131,7 @@ abstract class L10n {
   /// No description provided for @androidShellRiskBody.
   ///
   /// In zh, this message translates to:
-  /// **'命令使用所选通道的实际 UID，可能修改应用、系统设置和共享文件。它不受屏幕应用名单完整保护；每条命令仍会单独请求原生确认。只允许你理解并信任的命令。'**
+  /// **'确认策略可设置为每次询问、始终允许或仅在命中危险命令规则时询问。命令可能修改系统和文件。'**
   String get androidShellRiskBody;
 
   /// No description provided for @androidShellRiskAction.
@@ -3475,6 +3475,114 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'未能确认操作结果。先核实结果；已派发的命令不要自动重试。'**
   String get androidShellErrorUnknown;
+
+  /// No description provided for @androidShellLimitsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行限制'**
+  String get androidShellLimitsTitle;
+
+  /// No description provided for @androidShellLimitCommandLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'命令最大字节数'**
+  String get androidShellLimitCommandLabel;
+
+  /// No description provided for @androidShellLimitTimeoutLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'超时毫秒数'**
+  String get androidShellLimitTimeoutLabel;
+
+  /// No description provided for @androidShellLimitOutputLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'输出最大字节数'**
+  String get androidShellLimitOutputLabel;
+
+  /// No description provided for @androidShellMaxCommandBytes.
+  ///
+  /// In zh, this message translates to:
+  /// **'单条命令最多 {bytes} 字节'**
+  String androidShellMaxCommandBytes(int bytes);
+
+  /// No description provided for @androidShellAskEveryTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'每次都询问'**
+  String get androidShellAskEveryTime;
+
+  /// No description provided for @androidShellAlwaysAllow.
+  ///
+  /// In zh, this message translates to:
+  /// **'始终允许'**
+  String get androidShellAlwaysAllow;
+
+  /// No description provided for @androidShellDangerousOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'危险命令才询问'**
+  String get androidShellDangerousOnly;
+
+  /// No description provided for @androidShellDangerousRules.
+  ///
+  /// In zh, this message translates to:
+  /// **'危险命令规则'**
+  String get androidShellDangerousRules;
+
+  /// No description provided for @androidShellDangerousRulesHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'每行一条正则表达式，匹配时询问；无效表达式按普通文本匹配'**
+  String get androidShellDangerousRulesHint;
+
+  /// No description provided for @androidShellResetRules.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复默认规则'**
+  String get androidShellResetRules;
+
+  /// No description provided for @androidShellRoot.
+  ///
+  /// In zh, this message translates to:
+  /// **'Native Root'**
+  String get androidShellRoot;
+
+  /// No description provided for @androidShellRootHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用设备上的 su，以 root UID 执行命令；不会自动申请或启动 Root。'**
+  String get androidShellRootHint;
+
+  /// No description provided for @androidShellRootConnect.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接 Root'**
+  String get androidShellRootConnect;
+
+  /// No description provided for @androidShellErrorRootNotConnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'Root 尚未连接，请点击“连接 Root”。'**
+  String get androidShellErrorRootNotConnected;
+
+  /// No description provided for @androidShellErrorRootUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有可用的 Root su，或 Root 授权未通过。'**
+  String get androidShellErrorRootUnavailable;
+
+  /// No description provided for @androidShellConfirmationMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认策略'**
+  String get androidShellConfirmationMode;
+
+  /// No description provided for @androidShellErrorCommandFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'命令执行失败。'**
+  String get androidShellErrorCommandFailed;
 
   /// No description provided for @backgroundProtectionDescription.
   ///

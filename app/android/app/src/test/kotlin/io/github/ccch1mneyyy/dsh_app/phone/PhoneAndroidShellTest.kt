@@ -1,5 +1,7 @@
 package io.github.ccch1mneyyy.dsh_app.phone
 
+import io.github.ccch1mneyyy.dsh_app.phone.shell.ShellLimits
+import io.github.ccch1mneyyy.dsh_app.phone.shell.ShellProtocol
 import java.time.ZoneId
 import java.util.concurrent.atomic.AtomicLong
 import org.junit.Assert.*
@@ -74,8 +76,8 @@ class PhoneAndroidShellTest {
         override fun close() { core.worker.shutdown() }
     }
 
-    private fun parse(command: Any?, extra: Map<String, Any?> = emptyMap()) =
-        PhoneAndroidShell.parse(Args(mapOf("command" to command) + extra))
+    private fun parse(command: Any?, extra: Map<String, Any?> = emptyMap(), limit: Int = ShellProtocol.MAX_COMMAND_BYTES) =
+        PhoneAndroidShell.parse(Args(mapOf("command" to command) + extra), ShellLimits(maxCommandBytes = limit))
 
     @Test fun parserPreservesTheEntireCommandAndUsesBoundedDefaultTimeout() {
         val command = " \tprintf '%s\n' 'a;b'\r\nprintf done\n "
@@ -101,7 +103,9 @@ class PhoneAndroidShellTest {
     }
 
     @Test fun commandLimitCountsUtf8BytesRatherThanUtf16Characters() {
-        val limit = PhoneAndroidShell.MAX_COMMAND_BYTES
+        // The configured limit is a byte budget: 20 KiB by default, caller-overridable.
+        val limit = ShellProtocol.MAX_COMMAND_BYTES
+        assertEquals(20 * 1024, limit)
         assertNotNull(parse("x".repeat(limit)))
         assertNull(parse("x".repeat(limit + 1)))
         // Two bytes per character: the limit counts UTF-8 bytes, not UTF-16 units.
@@ -110,6 +114,9 @@ class PhoneAndroidShellTest {
         val emoji = "\ud83d\ude00"
         assertNotNull(parse(emoji.repeat(limit / 4)))
         assertNull(parse(emoji.repeat(limit / 4) + "x"))
+        // A lower configured ceiling wins over the default.
+        assertNull(parse("x".repeat(2049), limit = 2048))
+        assertNotNull(parse("x".repeat(2048), limit = 2048))
     }
 
     @Test fun hiddenControlAndBidiCharactersCannotChangeWhatThePersonApproves() {
