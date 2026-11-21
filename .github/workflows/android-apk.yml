@@ -106,7 +106,11 @@ jobs:
           test -f "$ANDROID_HOME/ndk/28.2.13676358/source.properties"
           runtime/build-runtime.sh arm64-v8a
       - name: Build Release APK
-        run: tooling/build-apk.sh --release -f arm64 --build-name "$VERSION" --build-number "$BUILD_NUMBER"
+        run: |
+          # The licensed companion pack is not in the repository and not redistributable
+          # here; upstream v1.3.0 makes it mandatory for release unless --no-companion.
+          tooling/build-apk.sh --release -f arm64 --no-companion \
+            --build-name "$VERSION" --build-number "$BUILD_NUMBER"
       - name: Prepare direct Release assets
         run: |
           mkdir -p release-assets
