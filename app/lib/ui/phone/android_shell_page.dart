@@ -381,17 +381,6 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
             ],
           ],
         ),
-        ListPageCard(
-          margin: _margin,
-          title: l10n.androidShellLimitsTitle,
-          children: [
-            ListPageRow(title: l10n.androidShellLimits(
-              (_status.limits['maxTimeoutMs'] ?? 60000) ~/ 1000,
-              _status.limits['maxOutputBytes'] ?? 65536),
-              subtitle: l10n.androidShellMaxCommandBytes(_status.limits['maxCommandBytes'] ?? 2048),
-              onTap: canSetup ? () => unawaited(_editLimits()) : null),
-          ],
-        ),
         if (shizuku && !_status.shizuku.granted)
           ListPageCard(margin: _margin, children: [authorize])
         else if (!root && !shizuku && !_status.adb.paired)
@@ -441,7 +430,14 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
                   value: _status.uid?.toString() ?? l10n.androidShellUidUnknown,
                 ),
                 if (timeout != null && output != null)
-                  ListPageRow(title: l10n.androidShellLimits(timeout ~/ 1000, output), titleMaxLines: 3),
+                  ListPageRow(
+                    key: const ValueKey('android-shell-limits'),
+                    title: l10n.androidShellLimits(timeout ~/ 1000, output),
+                    subtitle: l10n.androidShellMaxCommandBytes(_status.limits['maxCommandBytes'] ?? 20480),
+                    titleMaxLines: 3,
+                    subtitleMaxLines: 2,
+                    onTap: canSetup ? () => unawaited(_editLimits()) : null,
+                  ),
                 if (reasonCode != null)
                   ListPageRow(
                     key: const ValueKey('android-shell-reason'),

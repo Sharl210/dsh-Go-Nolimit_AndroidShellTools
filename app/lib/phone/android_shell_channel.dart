@@ -166,7 +166,9 @@ class AndroidShellStatus {
         shizuku != other.shizuku || adb != other.adb || root != other.root ||
         confirmationMode != other.confirmationMode || limits.length != other.limits.length ||
         dangerousRules.length != other.dangerousRules.length ||
-        defaultDangerousRules.length != other.defaultDangerousRules.length) return false;
+        defaultDangerousRules.length != other.defaultDangerousRules.length) {
+      return false;
+    }
     for (final entry in limits.entries) {
       if (other.limits[entry.key] != entry.value) return false;
     }
