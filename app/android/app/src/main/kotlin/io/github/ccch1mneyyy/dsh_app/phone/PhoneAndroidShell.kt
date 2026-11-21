@@ -1,5 +1,7 @@
 package io.github.ccch1mneyyy.dsh_app.phone
 
+import io.github.ccch1mneyyy.dsh_app.phone.shell.ShellLimits
+
 /** The native backend is selected only by App settings, never by model arguments. */
 fun interface PhoneShellExecutor {
     fun execute(ownerId: Long, command: String, timeoutMs: Long, stillWanted: () -> Boolean,
@@ -16,18 +18,18 @@ object PhoneAndroidShell {
     const val GRANT = "android-shell"
     data class Request(val command: String, val timeoutMs: Long)
 
-    fun parse(args: Args): Request? {
-        if (!args.onlyKeys("command", "timeout_ms")) return null
+    fun parse(args: Args, limits: ShellLimits = ShellLimits()): Request? {
+        if (!ShellLimits.valid(limits) || !args.onlyKeys("command", "timeout_ms")) return null
         val command = args.strictText("command") ?: return null
-        if (!validCommand(command)) return null
+        if (!validCommand(command, limits.maxCommandBytes)) return null
         val timeout = if (args.provided("timeout_ms")) args.strictInt("timeout_ms")?.toLong() ?: return null
-            else DEFAULT_TIMEOUT_MS
-        if (timeout !in 100L..MAX_TIMEOUT_MS) return null
+            else minOf(DEFAULT_TIMEOUT_MS, limits.maxTimeoutMs)
+        if (timeout !in 100L..limits.maxTimeoutMs) return null
         return Request(command, timeout)
     }
 
-    fun validCommand(command: String): Boolean = command.isNotBlank() &&
-        command.toByteArray(Charsets.UTF_8).size <= MAX_COMMAND_BYTES && command.none {
+    fun validCommand(command: String, maxBytes: Int = MAX_COMMAND_BYTES): Boolean = command.isNotBlank() &&
+        command.toByteArray(Charsets.UTF_8).size <= maxBytes && command.none {
             (it.code < 32 && it !in "\n\r\t") || it.code in 0x7f..0x9f ||
                 it.code == 0x061c || it.code in 0x200e..0x200f || it.code in 0x202a..0x202e || it.code in 0x2066..0x2069
         }
@@ -58,7 +60,7 @@ object PhoneAndroidShell {
         if (executor == null) return failure("unsupported")
         return executor.execute(owner.taskId, request.command, request.timeoutMs, ::live) { backend, uid ->
             if (!live()) Decision.STOP
-            else if (!(backend == "adb" && uid == 2000 || backend == "shizuku" && uid in setOf(0, 2000))) Decision.DENY
+            else if (!(backend == "adb" && uid == 2000 || backend == "shizuku" && uid in setOf(0, 2000) || backend == "root" && uid == 0)) Decision.DENY
             else if (tasks.hasGrant(null, GRANT)) Decision.ALLOW_ONCE
             else {
                 val prompt = ConfirmRequest(

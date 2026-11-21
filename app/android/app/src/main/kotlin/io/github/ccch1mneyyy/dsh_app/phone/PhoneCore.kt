@@ -4,6 +4,7 @@ import io.github.ccch1mneyyy.dsh_app.phone.background.Reasons
 import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneTaskTrace
 import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillReplaySelections
 import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillOutcomes
+import io.github.ccch1mneyyy.dsh_app.phone.shell.ShellLimits
 import java.time.ZoneId
 import java.util.concurrent.atomic.AtomicReference
 
@@ -25,6 +26,7 @@ interface PhoneEnv {
     fun backgroundUnavailable(): String
     fun system(): SystemApi
     fun androidShell(): PhoneShellExecutor? = null
+    fun androidShellLimits(): ShellLimits = ShellLimits()
     fun uiText(): PhoneUiText = PhoneUiText.DEFAULT
     fun zone(): ZoneId
     /** Tells the person what to fix (accessibility off, …); at most once per task and kind. */
@@ -395,7 +397,7 @@ class PhoneCore(
         tasks.isCurrent(owner) && !Thread.currentThread().isInterrupted
 
     private fun androidShell(a: Args, scope: SerialWorker.Scope, owner: PhoneTasks.Owner): Out {
-        val request = PhoneAndroidShell.parse(a) ?: return Out(
+        val request = PhoneAndroidShell.parse(a, env.androidShellLimits()) ?: return Out(
             Json.write(PhoneAndroidShell.failure("invalidArguments")), error = true)
         // Arbitrary system effects cannot become an implicitly verified UI replay route.
         skillTrace.markIncomplete(owner, PhoneTaskTrace.Gap.UNCERTAIN_RESULT)
@@ -455,7 +457,7 @@ class PhoneCore(
         var requestedApp = selectedApp
         when (name) {
             PhoneToolCatalog.ANDROID_SHELL -> {
-                if (PhoneAndroidShell.parse(a) == null) return Either.Left(Out(
+                if (PhoneAndroidShell.parse(a, env.androidShellLimits()) == null) return Either.Left(Out(
                     Json.write(PhoneAndroidShell.failure("invalidArguments")), error = true))
                 if (env.isLocked()) return Either.Left(Out(
                     Json.write(PhoneAndroidShell.failure("locked")), error = true))

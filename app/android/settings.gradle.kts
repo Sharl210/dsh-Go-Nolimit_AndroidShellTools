@@ -17,6 +17,9 @@ pluginManagement {
             maven { url = uri("https://maven.aliyun.com/repository/central") }
             maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
         }
+        if (System.getenv("DSH_MAVEN_CENTRAL_MIRROR") == "1") {
+            maven { url = uri("https://maven-central.storage-download.googleapis.com/maven2") }
+        }
         google()
         mavenCentral()
         gradlePluginPortal()
