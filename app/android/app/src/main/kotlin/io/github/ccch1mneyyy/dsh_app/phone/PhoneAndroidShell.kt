@@ -1,6 +1,7 @@
 package io.github.ccch1mneyyy.dsh_app.phone
 
 import io.github.ccch1mneyyy.dsh_app.phone.shell.ShellLimits
+import io.github.ccch1mneyyy.dsh_app.phone.shell.ShellProtocol
 
 /** The native backend is selected only by App settings, never by model arguments. */
 fun interface PhoneShellExecutor {
@@ -10,7 +11,8 @@ fun interface PhoneShellExecutor {
 
 /** A separate grant: UI app/task waivers deliberately have no effect here. */
 object PhoneAndroidShell {
-    const val MAX_COMMAND_BYTES = 2048
+    /** The chat entry falls back to the same byte budget the limits page edits. */
+    const val MAX_COMMAND_BYTES = ShellProtocol.MAX_COMMAND_BYTES
     const val DEFAULT_TIMEOUT_MS = 30_000L
     const val MAX_TIMEOUT_MS = 60_000L
 
