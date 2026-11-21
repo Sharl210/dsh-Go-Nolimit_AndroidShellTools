@@ -119,6 +119,9 @@ class ProcessLaunchGuardTest {
         "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/RootProcess.kt",
         // Explicitly authorized Android Shell: Java-owned helper and its bounded child shell.
         "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/AndroidShellProcess.kt",
+        // The Native Root backend's `su -c <command>` children, like RootProcess above: Java's
+        // launcher closes inherited fds. The root identity probe and every command share the file.
+        "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/RootShellBackend.kt",
         // The bounded privileged logcat reader also uses Java's fd-closing launcher.
         // The test below restricts this owner to one fixed-command ProcessBuilder.
         diagnosticJavaOwner,
@@ -265,6 +268,17 @@ class ProcessLaunchGuardTest {
             Code(source.substring(reference.offset), "kt").read().take(5).map { it.text })
         assertTrue(source.contains("\"/system/bin/app_process\", \"/system/bin\", AndroidShellJobMain::class.java.name"))
         assertTrue(source.contains("ProcessBuilder(\"/system/bin/sh\", \"-c\", args[1])"))
+    }
+
+    @Test fun rootBackendOnlyLaunchesSuWithTheReviewedArguments() {
+        val path = "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/RootShellBackend.kt"
+        val source = File(repository(), path).readText()
+        val calls = nativeCalls(source, "kt")
+        // Exactly two launchers, and both are the reviewed `su -c` form.
+        assertEquals(listOf("ProcessBuilder", "ProcessBuilder"), calls.map { it.text })
+        assertEquals(2, Regex("ProcessBuilder\\(\"su\", \"-c\", ").findAll(source).count())
+        assertTrue(source.contains("ProcessBuilder(\"su\", \"-c\", \"id -u\")"))
+        assertTrue(source.contains("ProcessBuilder(\"su\", \"-c\", command)"))
     }
 
     @Test fun selfUpdateOwnerOnlyLaunchesTheReviewedSystemInstaller() {
