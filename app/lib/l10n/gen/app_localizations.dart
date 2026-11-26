@@ -3583,6 +3583,7 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'命令执行失败。'**
   String get androidShellErrorCommandFailed;
+
   /// No description provided for @androidBackgroundProtectionTitle.
   ///
   /// In zh, this message translates to:

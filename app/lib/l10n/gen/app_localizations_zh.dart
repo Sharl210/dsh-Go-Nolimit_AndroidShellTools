@@ -1885,6 +1885,8 @@ class L10nZh extends L10n {
 
   @override
   String get androidShellErrorCommandFailed => '命令执行失败。';
+
+  @override
   String get androidBackgroundProtectionTitle => '增强保活';
 
   @override
