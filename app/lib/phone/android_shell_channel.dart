@@ -9,11 +9,26 @@ int? _nonNegativeInt(Object? value) => value is int && value >= 0 ? value : null
 
 enum AndroidShellBackend {
   shizuku,
-  adb;
+  adb,
+  root;
 
   static AndroidShellBackend? parse(Object? value) => switch (value) {
     'shizuku' => shizuku,
     'adb' => adb,
+    'root' => root,
+    _ => null,
+  };
+}
+
+enum AndroidShellConfirmationMode {
+  ask,
+  always,
+  dangerous;
+
+  static AndroidShellConfirmationMode? parse(Object? value) => switch (value) {
+    'ask' => ask,
+    'always' => always,
+    'dangerous' => dangerous,
     _ => null,
   };
 }
@@ -30,6 +45,13 @@ class AndroidShellShizukuStatus {
   final bool installed;
   final bool running;
   final bool granted;
+
+  @override
+  bool operator ==(Object other) => other is AndroidShellShizukuStatus &&
+      installed == other.installed && running == other.running && granted == other.granted;
+
+  @override
+  int get hashCode => Object.hash(installed, running, granted);
 }
 
 class AndroidShellAdbStatus {
@@ -40,6 +62,33 @@ class AndroidShellAdbStatus {
 
   final bool paired;
   final bool connected;
+
+  @override
+  bool operator ==(Object other) => other is AndroidShellAdbStatus && paired == other.paired && connected == other.connected;
+
+  @override
+  int get hashCode => Object.hash(paired, connected);
+}
+
+class AndroidShellRootStatus {
+  const AndroidShellRootStatus({this.available = false, this.connected = false, this.uid});
+
+  factory AndroidShellRootStatus.fromMap(Map<Object?, Object?> value) => AndroidShellRootStatus(
+    available: value['available'] == true,
+    connected: value['connected'] == true,
+    uid: _nonNegativeInt(value['uid']),
+  );
+
+  final bool available;
+  final bool connected;
+  final int? uid;
+
+  @override
+  bool operator ==(Object other) => other is AndroidShellRootStatus &&
+      available == other.available && connected == other.connected && uid == other.uid;
+
+  @override
+  int get hashCode => Object.hash(available, connected, uid);
 }
 
 /// Independent of the screen-control/background-display status and permissions.
@@ -54,6 +103,10 @@ class AndroidShellStatus {
     this.shizuku = const AndroidShellShizukuStatus(),
     this.adb = const AndroidShellAdbStatus(),
     this.limits = const {},
+    this.root = const AndroidShellRootStatus(),
+    this.confirmationMode = AndroidShellConfirmationMode.ask,
+    this.dangerousRules = const [],
+    this.defaultDangerousRules = const [],
   });
 
   const AndroidShellStatus.unavailable(String code) : this(reasonCode: code);
@@ -67,6 +120,8 @@ class AndroidShellStatus {
       return const AndroidShellStatus.unavailable('invalidResponse');
     }
     final limits = _map(value['limits']);
+    final policy = _map(value['policy']);
+    final root = _map(value['root']);
     return AndroidShellStatus(
       supported: true,
       enabled: value['enabled'] == true,
@@ -76,6 +131,10 @@ class AndroidShellStatus {
       reasonCode: _code(value['reasonCode']),
       shizuku: AndroidShellShizukuStatus.fromMap(_map(value['shizuku'])),
       adb: AndroidShellAdbStatus.fromMap(_map(value['adb'])),
+      root: AndroidShellRootStatus.fromMap(root),
+      confirmationMode: AndroidShellConfirmationMode.parse(policy['mode']) ?? AndroidShellConfirmationMode.ask,
+      dangerousRules: (policy['dangerousRules'] as List? ?? const []).whereType<String>().toList(growable: false),
+      defaultDangerousRules: (policy['defaultDangerousRules'] as List? ?? const []).whereType<String>().toList(growable: false),
       limits: Map.unmodifiable({
         for (final key in const ['defaultTimeoutMs', 'maxTimeoutMs', 'maxOutputBytes', 'maxCommandBytes'])
           key: ?_nonNegativeInt(limits[key]),
@@ -91,7 +150,43 @@ class AndroidShellStatus {
   final String? reasonCode;
   final AndroidShellShizukuStatus shizuku;
   final AndroidShellAdbStatus adb;
+  final AndroidShellRootStatus root;
+  final AndroidShellConfirmationMode confirmationMode;
+  final List<String> dangerousRules;
+  final List<String> defaultDangerousRules;
   final Map<String, int> limits;
+
+  String get dangerousRulesSummary => dangerousRules.take(6).join(' · ');
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! AndroidShellStatus ||
+        supported != other.supported || enabled != other.enabled || backend != other.backend ||
+        ready != other.ready || uid != other.uid || reasonCode != other.reasonCode ||
+        shizuku != other.shizuku || adb != other.adb || root != other.root ||
+        confirmationMode != other.confirmationMode || limits.length != other.limits.length ||
+        dangerousRules.length != other.dangerousRules.length ||
+        defaultDangerousRules.length != other.defaultDangerousRules.length) {
+      return false;
+    }
+    for (final entry in limits.entries) {
+      if (other.limits[entry.key] != entry.value) return false;
+    }
+    for (var i = 0; i < dangerousRules.length; i++) {
+      if (dangerousRules[i] != other.dangerousRules[i]) return false;
+    }
+    for (var i = 0; i < defaultDangerousRules.length; i++) {
+      if (defaultDangerousRules[i] != other.defaultDangerousRules[i]) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    supported, enabled, backend, ready, uid, reasonCode, shizuku, adb, root,
+    confirmationMode, Object.hashAll(dangerousRules), Object.hashAll(defaultDangerousRules),
+    Object.hashAll(limits.entries),
+  );
 }
 
 class AndroidShellResult {
@@ -130,6 +225,20 @@ class AndroidShellChannel {
       _result('configureAndroidShell', {'enabled': enabled, 'backend': backend.name});
 
   Future<bool> requestPermission() => _bool('androidShellRequestPermission');
+
+  Future<AndroidShellResult> configurePolicy({required AndroidShellConfirmationMode mode, required List<String> dangerousRules}) =>
+      _result('configureAndroidShellPolicy', {'mode': mode.name, 'dangerousRules': dangerousRules});
+
+  Future<AndroidShellResult> configureLimits({required int maxCommandBytes, required int maxTimeoutMs, required int maxOutputBytes}) =>
+      _result('configureAndroidShellLimits', {
+        'maxCommandBytes': maxCommandBytes,
+        'maxTimeoutMs': maxTimeoutMs,
+        'maxOutputBytes': maxOutputBytes,
+      });
+
+  Future<AndroidShellResult> resetDangerousRules() => _result('resetAndroidShellDangerousRules');
+
+  Future<AndroidShellResult> connectRoot() => _result('connectAndroidShellRoot');
 
   Future<AndroidShellResult> startPairing() => _result('androidShellStartPairing');
 

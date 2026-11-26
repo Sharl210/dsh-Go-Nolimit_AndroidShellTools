@@ -4,6 +4,9 @@ allprojects {
             maven { url = uri("https://maven.aliyun.com/repository/google") }
             maven { url = uri("https://maven.aliyun.com/repository/central") }
         }
+        if (System.getenv("DSH_MAVEN_CENTRAL_MIRROR") == "1") {
+            maven { url = uri("https://maven-central.storage-download.googleapis.com/maven2") }
+        }
         google()
         mavenCentral()
         // libadb-android (不打扰模式 self-ADB path) is published on JitPack only.

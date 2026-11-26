@@ -10,9 +10,11 @@ import java.util.concurrent.TimeUnit
 class AndroidShellController(context: Context, private val onChanged: () -> Unit = {}) {
     private val context = context.applicationContext
     private val preferences = this.context.getSharedPreferences("android-shell-v1", Context.MODE_PRIVATE)
+    private val policy = ShellPolicy(this.context)
+    private val root = RootShellBackend()
     private val guard = Any()
     private var enabled = preferences.getBoolean("enabled", false)
-    private var backend = preferences.getString("backend", "shizuku").takeIf { it == "adb" || it == "shizuku" } ?: "shizuku"
+    private var backend = preferences.getString("backend", "root").takeIf { it == "adb" || it == "shizuku" || it == "root" } ?: "root"
     private var generation = 0L
     private var setupBusy = false
     private var active: Lease? = null
@@ -36,24 +38,70 @@ class AndroidShellController(context: Context, private val onChanged: () -> Unit
         val reason = when {
             !config.first -> "disabled"
             link != null -> null
+            config.second == "root" && root.status()["connected"] == true -> null
+            config.second == "root" -> "rootNotConnected"
             config.second == "shizuku" && shizukuStatus["installed"] != true -> "shizukuMissing"
             config.second == "shizuku" && shizukuStatus["running"] != true -> "shizukuStopped"
             config.second == "shizuku" && shizukuStatus["granted"] != true -> "permissionRequired"
             config.second == "adb" && adbStatus["paired"] != true -> "adbNotPaired"
             else -> "notConnected"
         }
+        val limitConfig = policy.limits()
         return mapOf(
             "v" to 1, "enabled" to config.first, "backend" to config.second,
-            "ready" to (config.first && link != null), "uid" to link?.uid,
+            "ready" to (config.first && link != null || config.first && config.second == "root" && root.status()["connected"] == true),
+            "uid" to (if (config.second == "root") root.status()["uid"] else link?.uid),
             "reasonCode" to reason, "shizuku" to shizukuStatus, "adb" to adbStatus,
+            "root" to root.status(), "policy" to policy.status(),
             "limits" to mapOf("defaultTimeoutMs" to ShellProtocol.DEFAULT_TIMEOUT_MS,
-                "maxTimeoutMs" to ShellProtocol.MAX_TIMEOUT_MS, "maxOutputBytes" to ShellProtocol.MAX_OUTPUT_BYTES,
-                "maxCommandBytes" to ShellProtocol.MAX_COMMAND_BYTES),
+                "maxTimeoutMs" to limitConfig.maxTimeoutMs, "maxOutputBytes" to limitConfig.maxOutputBytes,
+                "maxCommandBytes" to limitConfig.maxCommandBytes),
         )
     }
 
+    /** Refresh an already-authorized backend without starting setup or pairing flows. */
+    fun refreshAuthorizedConnection() {
+        val selection = synchronized(guard) {
+            if (!enabled || setupBusy || active != null) return
+            backend
+        }
+        when (selection) {
+            "root" -> if (root.status()["connected"] != true) connectRoot()
+            "shizuku" -> {
+                val state = shizuku.status()
+                if (state["running"] == true && state["granted"] == true) connect()
+            }
+            "adb" -> if (adb.status()["paired"] == true) connect()
+        }
+    }
+
+
+    fun configurePolicy(mode: String?, rules: List<String>?): Map<String, Any?> = policy.configure(mode, rules)
+
+    fun configureLimits(limits: ShellLimits): Map<String, Any?> = policy.configureLimits(limits)
+
+    fun shellLimits(): ShellLimits = policy.limits()
+
+    fun resetDangerousRules(): Map<String, Any?> = policy.resetRules()
+
+    fun connectRoot(): Map<String, Any?> {
+        val selection = synchronized(guard) {
+            if (!enabled || backend != "root") return mapOf("ok" to false, "errorCode" to "disabled") + status()
+            if (setupBusy || active != null) return mapOf("ok" to false, "errorCode" to "busy") + status()
+            setupBusy = true
+            generation
+        }
+        val connected = try {
+            root.connect { synchronized(guard) { enabled && backend == "root" && generation == selection } }
+        } finally {
+            synchronized(guard) { setupBusy = false }
+            onChanged()
+        }
+        return status() + mapOf("ok" to connected, "errorCode" to if (connected) null else "rootUnavailable")
+    }
+
     fun configure(enabled: Boolean, backend: String): Map<String, Any?> {
-        if (backend != "shizuku" && backend != "adb") return mapOf("ok" to false, "errorCode" to "invalidArguments")
+        if (backend != "shizuku" && backend != "adb" && backend != "root") return mapOf("ok" to false, "errorCode" to "invalidArguments")
         val changed = synchronized(guard) {
             if (this.enabled == enabled && this.backend == backend) false else {
                 this.enabled = enabled; this.backend = backend; ++generation
@@ -63,9 +111,14 @@ class AndroidShellController(context: Context, private val onChanged: () -> Unit
                 true
             }
         }
-        if (changed) { adb.disconnect(); shizuku.disconnect(); onChanged() }
+        if (changed) { adb.disconnect(); shizuku.disconnect(); root.disconnect(); onChanged() }
         return status() + mapOf("ok" to true, "errorCode" to null)
     }
+
+    fun requiresConfirmation(command: String): Boolean = policy.shouldConfirm(command)
+
+    fun executeRoot(command: String, timeoutMs: Long, wanted: () -> Boolean): Map<String, Any?> =
+        root.execute(command, timeoutMs, policy.limits(), wanted)
 
     fun requestShizukuPermission(): Boolean = shizuku.requestPermission()
     fun startAdbPairing(): Map<String, Any?> = adb.startPairing()
@@ -103,8 +156,9 @@ class AndroidShellController(context: Context, private val onChanged: () -> Unit
         stillWanted: () -> Boolean,
         confirm: (backend: String, uid: Int) -> Decision,
     ): Map<String, Any?> {
-        ShellProtocol.commandError(command)?.let { return ShellProtocol.failure(it) }
-        ShellProtocol.timeoutError(timeoutMs)?.let { return ShellProtocol.failure(it) }
+        val limits = policy.limits()
+        ShellProtocol.commandError(command, limits.maxCommandBytes)?.let { return ShellProtocol.failure(it) }
+        ShellProtocol.timeoutError(timeoutMs, limits.maxTimeoutMs)?.let { return ShellProtocol.failure(it) }
         val lease = synchronized(guard) {
             if (!enabled) return ShellProtocol.failure("disabled")
             if (setupBusy || active != null) return ShellProtocol.failure("busy")
@@ -116,6 +170,21 @@ class AndroidShellController(context: Context, private val onChanged: () -> Unit
         var restoreInterrupt = false
         try {
             if (!wanted()) return result(lease, ShellProtocol.failure("cancelled"))
+            if (lease.backend == "root") {
+                // Chat can submit its first job without opening the settings page.
+                if (root.status()["connected"] != true && !root.connect(::wanted)) {
+                    val code = if (wanted()) "rootUnavailable" else "cancelled"
+                    return result(lease, ShellProtocol.failure(code))
+                }
+                if (!wanted()) return result(lease, ShellProtocol.failure("cancelled"))
+                if (requiresConfirmation(command)) {
+                    val decision = confirm("root", 0)
+                    PhoneAndroidShell.confirmationError(decision)?.let { return result(lease, ShellProtocol.failure(it)) }
+                }
+                if (!wanted()) return result(lease, ShellProtocol.failure("cancelled"))
+                lease.sent = true
+                return result(lease, executeRoot(command, timeoutMs, ::wanted))
+            }
             val connection = connection(lease.backend, null, ::wanted)
             val link = connection.link ?: return result(lease, ShellProtocol.failure(connection.errorCode ?: "connectFailed"))
             lease.link = link
@@ -123,11 +192,13 @@ class AndroidShellController(context: Context, private val onChanged: () -> Unit
             // Read real UID on this very channel before every confirmation, not from provider status.
             if (!link.probe()) { link.close(); return result(lease, ShellProtocol.failure("identityChanged")) }
             readyLink = link
-            val decision = confirm(lease.backend, link.uid)
+            val decision = if (requiresConfirmation(command)) confirm(lease.backend, link.uid) else Decision.ALLOW_ONCE
             if (!wanted()) return result(lease, ShellProtocol.failure("cancelled"))
             PhoneAndroidShell.confirmationError(decision)?.let { return result(lease, ShellProtocol.failure(it)) }
             var response = link.call(mapOf("op" to "start", "jobId" to lease.id,
-                "command" to command, "timeoutMs" to timeoutMs, "uid" to link.uid)) {
+                "command" to command, "timeoutMs" to timeoutMs, "uid" to link.uid,
+                "maxCommandBytes" to limits.maxCommandBytes, "maxTimeoutMs" to limits.maxTimeoutMs,
+                "maxOutputBytes" to limits.maxOutputBytes)) {
                 wanted() && synchronized(guard) {
                     if (active !== lease || lease.cancelled || generation != lease.generation || !enabled) false
                     else { lease.sent = true; true }
@@ -164,7 +235,7 @@ class AndroidShellController(context: Context, private val onChanged: () -> Unit
     }
 
     private fun result(lease: Lease, values: Map<String, Any?>): Map<String, Any?> =
-        values + mapOf("backend" to lease.backend, "uid" to lease.link?.uid?.takeIf { it >= 0 })
+        values + mapOf("backend" to lease.backend, "uid" to (values["uid"] ?: lease.link?.uid?.takeIf { it >= 0 }))
 
     private fun connection(backend: String, port: Int?, wanted: () -> Boolean): ShellConnection =
         if (backend == "adb") adb.connect(port, wanted) else shizuku.connect(wanted)
@@ -174,7 +245,7 @@ class AndroidShellController(context: Context, private val onChanged: () -> Unit
             active?.takeIf { it.ownerId == ownerId }?.also { it.cancelled = true }
         } ?: return
         if (lease.link == null) {
-            if (lease.backend == "adb") adb.disconnect() else shizuku.disconnect()
+            if (lease.backend == "adb") adb.disconnect() else if (lease.backend == "shizuku") shizuku.disconnect() else root.disconnect()
         } else cancelRemote(lease)
     }
 
@@ -185,7 +256,7 @@ class AndroidShellController(context: Context, private val onChanged: () -> Unit
             active?.also { it.cancelled = true }
         }
         if (lease != null) cancelRemote(lease)
-        adb.disconnect(); shizuku.disconnect(); onChanged()
+        adb.disconnect(); shizuku.disconnect(); root.disconnect(); onChanged()
     }
 
     private fun cancelRemote(lease: Lease) {

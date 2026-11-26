@@ -1141,6 +1141,8 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
         shell.execute(ownerId, command, timeoutMs, live, confirm)
     }
 
+    override fun androidShellLimits(): io.github.ccch1mneyyy.dsh_app.phone.shell.ShellLimits = shell.shellLimits()
+
     override fun zone(): ZoneId = ZoneId.systemDefault()
 
     override fun notifyFix(kind: String) = notifyFixFor(tasks, kind)

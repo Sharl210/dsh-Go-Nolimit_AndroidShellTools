@@ -1,0 +1,134 @@
+name: Android Release APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Official upstream version name, for example 1.4.0
+        required: true
+        default: 1.4.0
+        type: string
+      build_number:
+        description: Official upstream Android versionCode
+        required: true
+        default: '11252059'
+        type: string
+      release_revision:
+        description: Optional fork release revision (does not change the APK version)
+        required: false
+        type: string
+      prerelease:
+        description: Mark the GitHub Release as prerelease
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish arm64 Release APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      TZ: Asia/Shanghai
+      DSH_MAVEN_MIRRORS: '0'
+      DSH_MAVEN_CENTRAL_MIRROR: '1'
+      VERSION: ${{ inputs.version }}
+      BUILD_NUMBER: ${{ inputs.build_number }}
+      RELEASE_REVISION: ${{ inputs.release_revision }}
+    steps:
+      - name: Validate official release version
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$BUILD_NUMBER" =~ ^[0-9]+$ ]]
+          [[ -z "$RELEASE_REVISION" || "$RELEASE_REVISION" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]
+          curl -fsSL "https://github.com/ccch1mneyyy/dsh-Go/releases/download/v$VERSION/update.json" |
+            jq -e --arg version "$VERSION+$BUILD_NUMBER" --arg tag "v$VERSION" '.version == $version and .tag == $tag'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: 3.47.7
+          channel: stable
+          cache: true
+      - name: Configure Gradle Maven repositories
+        run: |
+          mkdir -p "$HOME/.gradle/init.d"
+          cat > "$HOME/.gradle/init.d/dsh-maven-repositories.gradle" <<'EOF'
+          allprojects {
+              buildscript {
+                  repositories {
+                      google()
+                      mavenCentral()
+                      maven { url = uri('https://maven-central.storage-download.googleapis.com/maven2') }
+                  }
+              }
+              repositories {
+                  google()
+                  mavenCentral()
+                  maven { url = uri('https://maven-central.storage-download.googleapis.com/maven2') }
+              }
+          }
+          settingsEvaluated { settings ->
+              settings.pluginManagement.repositories {
+                  gradlePluginPortal()
+                  google()
+                  mavenCentral()
+                  maven { url = uri('https://maven-central.storage-download.googleapis.com/maven2') }
+              }
+              settings.dependencyResolutionManagement.repositoriesMode.set(
+                  org.gradle.api.initialization.resolve.RepositoriesMode.PREFER_PROJECT
+              )
+          }
+          EOF
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Install Flutter dependencies
+        working-directory: app
+        run: |
+          flutter pub get --enforce-lockfile
+          printf 'sdk.dir=%s\nflutter.sdk=%s\n' "$ANDROID_HOME" "$FLUTTER_ROOT" > android/local.properties
+      - name: Prepare complete Android runtime and NDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;28.2.13676358'
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          test -f "$ANDROID_HOME/ndk/28.2.13676358/source.properties"
+          runtime/build-runtime.sh arm64-v8a
+      - name: Build Release APK
+        run: |
+          # The licensed companion pack is not in the repository and not redistributable
+          # here; upstream v1.3.0 makes it mandatory for release unless --no-companion.
+          tooling/build-apk.sh --release -f arm64 --no-companion \
+            --build-name "$VERSION" --build-number "$BUILD_NUMBER"
+      - name: Prepare direct Release assets
+        run: |
+          mkdir -p release-assets
+          cp app/build/app/outputs/flutter-apk/app-arm64-release.apk "release-assets/dsh-go-$VERSION-arm64.apk"
+          (cd release-assets && sha256sum "dsh-go-$VERSION-arm64.apk" > SHA256SUMS)
+      - name: Verify Release assets
+        run: |
+          (cd release-assets && sha256sum -c SHA256SUMS)
+          test -s "release-assets/dsh-go-$VERSION-arm64.apk"
+      - name: Publish direct APK Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$VERSION${RELEASE_REVISION:+-$RELEASE_REVISION}"
+          gh release create "$tag" \
+            "release-assets/dsh-go-$VERSION-arm64.apk" \
+            release-assets/SHA256SUMS \
+            --target "$(git rev-parse HEAD)" \
+            --title "DSH Go $VERSION Android Shell" \
+            --notes "Android Shell fork Release: confirmation policies, editable dangerous rules, configurable limits, and Native Root backend." \
+            ${{ inputs.prerelease && '--prerelease' || '' }}

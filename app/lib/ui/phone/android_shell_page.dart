@@ -36,6 +36,9 @@ String androidShellErrorText(L10n l10n, String code) => switch (code) {
   'transportLost' => l10n.androidShellErrorTransportLost,
   'protocolMismatch' => l10n.androidShellErrorProtocolMismatch,
   'nativeUnavailable' => l10n.androidShellErrorNativeUnavailable,
+  'rootNotConnected' => l10n.androidShellErrorRootNotConnected,
+  'rootUnavailable' => l10n.androidShellErrorRootUnavailable,
+  'commandFailed' => l10n.androidShellErrorCommandFailed,
   'invalidResponse' => l10n.androidShellErrorInvalidResponse,
   'stopFailed' => l10n.androidShellErrorStopFailed,
   _ => l10n.androidShellErrorUnknown,
@@ -83,7 +86,7 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
   Future<void> _refresh() async {
     final read = ++_read;
     final status = await _channel.status();
-    if (!mounted || read != _read) return;
+    if (!mounted || read != _read || (status == _status && !_loading)) return;
     setState(() {
       _status = status;
       _loading = false;
@@ -100,10 +103,18 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
     try {
       final result = await action();
       if (!mounted || operation != _operation) return;
-      setState(() => _errorCode = result.ok ? null : result.errorCode ?? 'invalidResponse');
-      await _refresh();
+      final status = await _channel.status();
+      if (!mounted || operation != _operation) return;
+      setState(() {
+        _status = status;
+        _loading = false;
+        _errorCode = result.ok ? null : result.errorCode ?? 'invalidResponse';
+        _busy = false;
+      });
     } finally {
-      if (mounted && operation == _operation) setState(() => _busy = false);
+      if (mounted && operation == _operation && _busy) {
+        setState(() => _busy = false);
+      }
     }
   }
 
@@ -142,7 +153,93 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
     await _run(() => pairing ? _channel.pair(input.code!, port: input.port) : _channel.connect(port: input.port));
   }
 
-  /// Stop remains available while a pairing/connection request is pending.
+  Future<void> _configureMode(AndroidShellConfirmationMode mode) async {
+    await _run(() => _channel.configurePolicy(mode: mode, dangerousRules: _status.dangerousRules));
+  }
+
+  Future<void> _editRules() async {
+    final controller = TextEditingController(text: _status.dangerousRules.join('\n'));
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.androidShellDangerousRules),
+        content: TextField(
+          controller: controller,
+          minLines: 6,
+          maxLines: 12,
+          autofocus: true,
+          decoration: InputDecoration(labelText: context.l10n.androidShellDangerousRulesHint),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.commonCancel)),
+          FilledButton(onPressed: () => Navigator.pop(context, controller.text), child: Text(context.l10n.commonSave)),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (!mounted || value == null) return;
+    final rules = value
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+    await _run(() => _channel.configurePolicy(
+          mode: _status.confirmationMode,
+          dangerousRules: rules,
+        ));
+  }
+
+  Future<void> _resetRules() => _run(_channel.resetDangerousRules);
+
+  Future<void> _editLimits() async {
+    final command = TextEditingController(text: '${_status.limits['maxCommandBytes'] ?? 20 * 1024}');
+    final timeout = TextEditingController(text: '${_status.limits['maxTimeoutMs'] ?? 60000}');
+    final output = TextEditingController(text: '${_status.limits['maxOutputBytes'] ?? 65536}');
+    final value = await showDialog<List<int>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.androidShellLimitsTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _limitField(command, context.l10n.androidShellLimitCommandLabel),
+            const SizedBox(height: 12),
+            _limitField(timeout, context.l10n.androidShellLimitTimeoutLabel),
+            const SizedBox(height: 12),
+            _limitField(output, context.l10n.androidShellLimitOutputLabel),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.commonCancel)),
+          FilledButton(onPressed: () {
+            final values = [int.tryParse(command.text), int.tryParse(timeout.text), int.tryParse(output.text)];
+            if (values.every((item) => item != null)) Navigator.pop(context, values.cast<int>());
+          }, child: Text(context.l10n.commonSave)),
+        ],
+      ),
+    );
+    command.dispose();
+    timeout.dispose();
+    output.dispose();
+    if (!mounted || value == null) return;
+    await _run(() => _channel.configureLimits(
+      maxCommandBytes: value[0], maxTimeoutMs: value[1], maxOutputBytes: value[2]));
+  }
+
+  Widget _limitField(TextEditingController controller, String label) => TextField(
+    controller: controller,
+    keyboardType: TextInputType.number,
+    maxLines: 1,
+    decoration: InputDecoration(
+      labelText: label,
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      contentPadding: const EdgeInsets.fromLTRB(16, 22, 16, 12),
+      border: const OutlineInputBorder(),
+    ),
+  );
+
   Future<void> _stop() async {
     if (_stopping) return;
     final operation = ++_operation;
@@ -175,6 +272,7 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
     final timeout = _status.limits['maxTimeoutMs'];
     final output = _status.limits['maxOutputBytes'];
     final shizuku = _status.backend == AndroidShellBackend.shizuku;
+    final root = _status.backend == AndroidShellBackend.root;
     final authorize = ListPageRow(
       key: const ValueKey('android-shell-authorize'),
       title: l10n.androidShellAuthorize,
@@ -234,6 +332,14 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
               subtitleMaxLines: 6,
             ),
             ListPageRow(title: l10n.androidShellRefresh, onTap: _loading ? null : () => unawaited(_refresh())),
+            ListPageRow(
+              key: const ValueKey('android-shell-stop'),
+              icon: AppIcons.stop,
+              title: l10n.androidShellStop,
+              titleMaxLines: 2,
+              danger: true,
+              onTap: _loading || _stopping ? null : () => unawaited(_stop()),
+            ),
           ],
         ),
         if (_errorCode case final code?)
@@ -253,7 +359,7 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
                 child: ListPageRow(
                   key: ValueKey('android-shell-backend-${backend.name}'),
                   leading: Icon(_status.backend == backend ? AppIcons.radioOn : AppIcons.radioOff),
-                  title: backend == AndroidShellBackend.shizuku ? 'Shizuku' : l10n.androidShellAdb,
+                  title: _backendTitle(backend, l10n),
                   onTap: !canSetup || _status.backend == backend
                       ? null
                       : () => unawaited(_run(() => _channel.configure(enabled: _status.enabled, backend: backend))),
@@ -263,34 +369,43 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
         ),
         if (shizuku && !_status.shizuku.granted)
           ListPageCard(margin: _margin, children: [authorize])
-        else if (!shizuku && !_status.adb.paired)
+        else if (!root && !shizuku && !_status.adb.paired)
           ListPageCard(margin: _margin, children: pairing),
-        if (!_status.ready && (shizuku ? _status.shizuku.granted : _status.adb.paired))
+        if (!_status.ready && (root || (shizuku ? _status.shizuku.granted : _status.adb.paired)))
           ListPageCard(
             margin: _margin,
             children: [
               ListPageRow(
-                key: ValueKey(shizuku ? 'android-shell-connect-shizuku' : 'android-shell-connect'),
-                title: shizuku ? l10n.androidShellConnectChannel : l10n.androidShellConnect,
+                key: ValueKey(root ? 'android-shell-connect-root' : (shizuku ? 'android-shell-connect-shizuku' : 'android-shell-connect')),
+                title: root ? l10n.androidShellRootConnect : (shizuku ? l10n.androidShellConnectChannel : l10n.androidShellConnect),
                 titleMaxLines: 2,
                 subtitle: !_status.enabled ? l10n.androidShellErrorDisabled : null,
                 onTap: canSetup && _status.enabled
-                    ? () => unawaited(shizuku ? _run(_channel.connect) : _adbInput(pairing: false))
+                    ? () => unawaited(root ? _run(_channel.connectRoot) : (shizuku ? _run(_channel.connect) : _adbInput(pairing: false)))
                     : null,
               ),
             ],
           ),
         ListPageCard(
           margin: _margin,
+          title: l10n.androidShellConfirmationMode,
           children: [
-            ListPageRow(
-              key: const ValueKey('android-shell-stop'),
-              icon: AppIcons.stop,
-              title: l10n.androidShellStop,
-              titleMaxLines: 2,
-              danger: true,
-              onTap: _loading || _stopping ? null : () => unawaited(_stop()),
-            ),
+            for (final mode in AndroidShellConfirmationMode.values)
+              ListPageRow(
+                key: ValueKey('android-shell-policy-${mode.name}'),
+                leading: Icon(_status.confirmationMode == mode ? AppIcons.radioOn : AppIcons.radioOff),
+                title: _modeTitle(mode, l10n),
+                onTap: canSetup && mode != _status.confirmationMode
+                    ? () => unawaited(_configureMode(mode))
+                    : null,
+              ),
+            if (_status.confirmationMode == AndroidShellConfirmationMode.dangerous) ...[
+              ListPageRow(title: l10n.androidShellDangerousRules,
+                subtitle: _status.dangerousRulesSummary, subtitleMaxLines: 3,
+                onTap: canSetup ? () => unawaited(_editRules()) : null),
+              ListPageRow(title: l10n.androidShellResetRules,
+                onTap: canSetup ? () => unawaited(_resetRules()) : null),
+            ],
           ],
         ),
         PhoneOptionsFold(
@@ -309,7 +424,14 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
                   value: _status.uid?.toString() ?? l10n.androidShellUidUnknown,
                 ),
                 if (timeout != null && output != null)
-                  ListPageRow(title: l10n.androidShellLimits(timeout ~/ 1000, output), titleMaxLines: 3),
+                  ListPageRow(
+                    key: const ValueKey('android-shell-limits'),
+                    title: l10n.androidShellLimits(timeout ~/ 1000, output),
+                    subtitle: l10n.androidShellMaxCommandBytes(_status.limits['maxCommandBytes'] ?? 20480),
+                    titleMaxLines: 3,
+                    subtitleMaxLines: 2,
+                    onTap: canSetup ? () => unawaited(_editLimits()) : null,
+                  ),
                 if (reasonCode != null)
                   ListPageRow(
                     key: const ValueKey('android-shell-reason'),
@@ -322,6 +444,9 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
                   _fact(l10n.androidShellRunning, _status.shizuku.running),
                   _fact(l10n.androidShellGranted, _status.shizuku.granted),
                   if (_status.shizuku.granted) authorize,
+                ] else if (root) ...[
+                  _fact(l10n.androidShellRoot, _status.root.connected),
+                  if (_status.root.connected) ListPageRow(title: l10n.androidShellUid, value: '${_status.root.uid ?? 0}'),
                 ] else ...[
                   _fact(l10n.androidShellPaired, _status.adb.paired),
                   _fact(l10n.androidShellConnected, _status.adb.connected),
@@ -329,7 +454,7 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
                 ],
               ],
             ),
-            PhoneNote(text: shizuku ? l10n.androidShellAuthorizeHint : l10n.androidShellPairingGuide),
+            PhoneNote(text: root ? l10n.androidShellRootHint : (shizuku ? l10n.androidShellAuthorizeHint : l10n.androidShellPairingGuide)),
             PhoneNote(text: l10n.androidShellStopHint),
           ],
         ),
@@ -337,6 +462,17 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
     );
   }
 
+  String _backendTitle(AndroidShellBackend backend, L10n l10n) => switch (backend) {
+    AndroidShellBackend.shizuku => 'Shizuku',
+    AndroidShellBackend.adb => l10n.androidShellAdb,
+    AndroidShellBackend.root => l10n.androidShellRoot,
+  };
+
+  String _modeTitle(AndroidShellConfirmationMode mode, L10n l10n) => switch (mode) {
+    AndroidShellConfirmationMode.ask => l10n.androidShellAskEveryTime,
+    AndroidShellConfirmationMode.always => l10n.androidShellAlwaysAllow,
+    AndroidShellConfirmationMode.dangerous => l10n.androidShellDangerousOnly,
+  };
   Widget _fact(String title, bool ready) => ListPageRow(
     title: title,
     titleMaxLines: 2,

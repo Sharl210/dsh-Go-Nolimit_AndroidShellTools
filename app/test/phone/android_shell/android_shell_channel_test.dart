@@ -36,7 +36,7 @@ void main() {
       {},
       {...shellStatus(), 'v': 2},
       {...shellStatus(), 'v': 1.0},
-      {...shellStatus(), 'backend': 'root'},
+      {...shellStatus(), 'backend': 'su'},
       {...shellStatus(), 'enabled': 1},
       {...shellStatus(), 'ready': 'yes'},
     ]) {
@@ -47,6 +47,14 @@ void main() {
       expect(status.uid, isNull);
       expect(status.reasonCode, isNotNull);
     }
+  });
+
+  test('the Native Root backend parses as a supported channel', () {
+    final status = AndroidShellStatus.fromMap({...shellStatus(), 'backend': 'root', 'root': {'connected': true, 'uid': 0}});
+    expect(status.supported, isTrue);
+    expect(status.backend, AndroidShellBackend.root);
+    expect(status.root.connected, isTrue);
+    expect(status.root.uid, 0);
   });
 
   test('UID and limits are reported, never inferred or coerced', () {

@@ -10,10 +10,12 @@ class ShellProtocolTest {
     }
 
     @Test fun utf8ByteLimitNotCharacterLimit() {
-        assertNull(ShellProtocol.commandError("a".repeat(2048)))
-        assertEquals("commandTooLong", ShellProtocol.commandError("a".repeat(2049)))
-        assertNull(ShellProtocol.commandError("\u4e2d".repeat(682)))
-        assertEquals("commandTooLong", ShellProtocol.commandError("\u4e2d".repeat(683)))
+        val limit = ShellProtocol.MAX_COMMAND_BYTES
+        assertNull(ShellProtocol.commandError("a".repeat(limit)))
+        assertEquals("commandTooLong", ShellProtocol.commandError("a".repeat(limit + 1)))
+        // Three bytes per character.
+        assertNull(ShellProtocol.commandError("\u4e2d".repeat(limit / 3)))
+        assertEquals("commandTooLong", ShellProtocol.commandError("\u4e2d".repeat(limit / 3 + 1)))
     }
 
     @Test fun nulAndInvisibleControlsAreRejected() {
@@ -43,7 +45,9 @@ class ShellProtocolTest {
         assertTrue(ShellProtocol.validUid("shizuku", 2000))
         assertTrue(ShellProtocol.validUid("shizuku", 0))
         assertFalse(ShellProtocol.validUid("shizuku", 10_000))
-        assertFalse(ShellProtocol.validUid("root", 0))
+        // Identity comes from `su -c id -u` on the same root channel, so root only runs as uid 0.
+        assertTrue(ShellProtocol.validUid("root", 0))
+        assertFalse(ShellProtocol.validUid("root", 2000))
     }
 
     @Test fun failureHasConsistentSafeResultShape() {
